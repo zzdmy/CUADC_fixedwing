@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="CUADC_fixedwing.vcxproj" Id="2A47C407-12DE-43F6-A7FC-84F140EDDD33" />
+</Solution>

@@ -1,0 +1,13 @@
+适用于 .NET Framework MSBuild 版本 18.10.0-1.26379.9+c88db8eb0
+
+  正在生成代码
+  Previous IPDB not found, fall back to full compilation.
+  All 9686 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  已完成代码的生成
+  CUADC_fixedwing.vcxproj -> E:\查打\CUADC_fixedwing-main\x64\Release\CUADC_fixedwing.exe
+
+已成功生成。
+    0 个警告
+    0 个错误
+
+已用时间 00:00:03.28

@@ -1,0 +1,44 @@
+# Visual Studio 相关
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+.vs/
+x64/
+Debug/
+Release/
+*/x64/
+*/Debug/
+*/Release/
+
+# 编译输出
+*.exe
+*.dll
+*.lib
+*.obj
+*.pdb
+*.ilk
+*.log
+*.tlog
+
+# 项目构建目录
+CUADCcopter/
+
+# 日志文件
+logs/
+
+# 模型文件（大文件）
+*.engine
+*.onnx
+
+# OpenCV 库文件
+opencv_world4130.dll
+opencv_world4130.lib
+GeographicLib.dll
+
+# 其他
+*.pyc
+__pycache__/
+*.user
+/.codegraph
+/CLAUDE.md
+/license.lic

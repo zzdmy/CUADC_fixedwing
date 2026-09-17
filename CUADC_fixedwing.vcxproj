@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <VCProjectVersion>18.0</VCProjectVersion>
+    <Keyword>Win32Proj</Keyword>
+    <ProjectGuid>{2A47C407-12DE-43F6-A7FC-84F140EDDD33}</ProjectGuid>
+    <RootNamespace>CUADC_fixedwing</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v145</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <IncludePath>F:\opencv-cuda-4.13\install\include;E:\GeographicLib-2.4\include;C:\Users\33083\vcpkg\installed\x64-windows\include;E:\code\mavlink\mavlink lib;C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT-10.16.1.11\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include;$(ProjectDir);$(IncludePath)</IncludePath>
+    <LibraryPath>F:\opencv-cuda-4.13\install\x64\vc18\lib;E:\GeographicLib-2.4\lib;C:\Users\33083\vcpkg\installed\x64-windows\lib;C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT-10.16.1.11\lib;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\lib\x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <IncludePath>F:\opencv-cuda-4.13\install\include;E:\GeographicLib-2.4\include;C:\Users\33083\vcpkg\installed\x64-windows\include;E:\code\mavlink\mavlink lib;C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT-10.16.1.11\include;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\include;$(ProjectDir);$(IncludePath)</IncludePath>
+    <LibraryPath>F:\opencv-cuda-4.13\install\x64\vc18\lib;E:\GeographicLib-2.4\lib;C:\Users\33083\vcpkg\installed\x64-windows\lib;C:\Program Files\NVIDIA GPU Computing Toolkit\TensorRT-10.16.1.11\lib;C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.8\lib\x64;$(LibraryPath)</LibraryPath>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <Optimization>MaxSpeed</Optimization>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opencv_world4130.lib;cudart.lib;nvinfer_10.lib;nvinfer_plugin_10.lib;nvonnxparser_10.lib;GeographicLib-i.lib;yaml-cpp.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>true</SDLCheck>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>opencv_world4130.lib;cudart.lib;nvinfer_10.lib;nvinfer_plugin_10.lib;nvonnxparser_10.lib;GeographicLib-i.lib;yaml-cpp.lib;fmt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>F:\opencv-cuda-4.13\install\x64\vc18\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="AppLogger.h" />
+    <ClInclude Include="ConfigManager.h" />
+    <ClInclude Include="WatchdogHelper.h" />
+    <ClInclude Include="WinDeviceEnumerator.h" />
+    <ClInclude Include="CaptureThread.h" />
+    <ClInclude Include="config_loader.h" />
+    <ClInclude Include="DeviceEnumerator.h" />
+    <ClInclude Include="FrameDispatcher.h" />
+    <ClInclude Include="IDetector.h" />
+    <ClInclude Include="ITransport.h" />
+    <ClInclude Include="MavlinkProtocolHandler.h" />
+    <ClInclude Include="MissionScheduler.h" />
+    <ClInclude Include="TargetSelection.h" />
+    <ClInclude Include="tracking\TrackedObject.h" />
+    <ClInclude Include="tracking\NextNumberGenerator.h" />
+    <ClInclude Include="tracking\StableDetectionTracker.h" />
+    <ClInclude Include="tracking\GPSTargetClusterer.h" />
+    <ClInclude Include="MotionController.h" />
+    <ClInclude Include="OpenCVDNNDetector.h" />
+    <ClInclude Include="PixelToGPSConverter.h" />
+    <ClInclude Include="realtime_pipeline.h" />
+    <ClInclude Include="SerialTransport.h" />
+    <ClInclude Include="TcpTransport.h" />
+    <ClInclude Include="TensorRTDetector.h" />
+    <ClInclude Include="UdpTransport.h" />
+    <ClInclude Include="yolodecet\inference.h" />
+    <ClInclude Include="yolodecet\yolo_tracker.h" />
+    <ClInclude Include="yolov8_trt_infer.hpp" />
+    <ClInclude Include="ocr\OcrCharset.h" />
+    <ClInclude Include="ocr\PaddleOCRRec.h" />
+    <ClInclude Include="ocr\OcrDigitReader.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="AppLogger.cpp" />
+    <ClCompile Include="CaptureThread.cpp" />
+    <ClCompile Include="config_loader.cpp" />
+    <ClCompile Include="WatchdogHelper.cpp" />
+    <ClCompile Include="FrameDispatcher.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="MavlinkProtocolHandler.cpp" />
+    <ClCompile Include="MissionScheduler.cpp" />
+    <ClCompile Include="tracking\StableDetectionTracker.cpp" />
+    <ClCompile Include="tracking\GPSTargetClusterer.cpp" />
+    <ClCompile Include="MotionController.cpp" />
+    <ClCompile Include="OpenCVDNNDetector.cpp" />
+    <ClCompile Include="PixelToGPSConverter.cpp" />
+    <ClCompile Include="realtime_pipeline.cpp" />
+    <ClCompile Include="rtk\NtripClient.cpp" />
+    <ClCompile Include="rtk\RtkInjector.cpp" />
+    <ClCompile Include="SerialTransport.cpp" />
+    <ClCompile Include="TcpTransport.cpp" />
+    <ClCompile Include="TensorRTDetector.cpp" />
+    <ClCompile Include="UdpTransport.cpp" />
+    <ClCompile Include="WinDeviceEnumerator.cpp" />
+    <ClCompile Include="yolodecet\inference.cpp" />
+    <ClCompile Include="yolodecet\yolo_tracker.cpp" />
+    <ClCompile Include="yolov8_trt_infer.cpp" />
+    <ClCompile Include="ocr\OcrCharset.cpp" />
+    <ClCompile Include="ocr\PaddleOCRRec.cpp" />
+    <ClCompile Include="ocr\OcrDigitReader.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Library Include="opencv_world4130.lib" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="config.yaml" />
+    <None Include="full_project_review_arducopter.md" />
+    <None Include="GeographicLib.dll" />
+    <None Include="main_review_and_flow.md" />
+    <None Include="opencv_world4130.dll" />
+    <None Include="setup_ocr_model.ps1" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

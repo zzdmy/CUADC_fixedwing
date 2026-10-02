@@ -58,11 +58,11 @@ namespace ocr {
         return makeBoxKey(r);
     }
 
-    OcrDigitReader::OcrDigitReader(OcrConfig cfg, PaddleRecConfig recCfg)
-        : m_cfg(std::move(cfg)), m_recCfg(std::move(recCfg)) {
-        m_rec = std::make_unique<PaddleOCRRec>(m_recCfg);
+    OcrDigitReader::OcrDigitReader(OcrConfig cfg, OcrPipelineConfig pipelineCfg)
+        : m_cfg(std::move(cfg)), m_pipelineCfg(std::move(pipelineCfg)) {
+        m_pipeline = std::make_unique<OcrPipeline>(m_pipelineCfg);
         m_enabled.store(m_cfg.startEnabled);
-        if (!m_rec->isReady()) {
+        if (!m_pipeline->isReady()) {
             AppLogger::get().error("OCR 识别器初始化失败，编号识别将不可用");
         }
     }
@@ -75,7 +75,7 @@ namespace ocr {
         if (m_running.load()) {
             return;
         }
-        if (!m_rec || !m_rec->isReady()) {
+        if (!m_pipeline || !m_pipeline->isReady()) {
             AppLogger::get().error("OCR 引擎未就绪，跳过启动");
             return;
         }
@@ -150,6 +150,15 @@ namespace ocr {
                     break;
                 }
 
+                // 类别过滤：只对配置的类别做 OCR（空=全部；任务二只取 bucket 类）
+                if (!m_cfg.keepClassIds.empty()) {
+                    bool keep = false;
+                    for (int cid : m_cfg.keepClassIds) {
+                        if (det.classId == cid) { keep = true; break; }
+                    }
+                    if (!keep) continue;
+                }
+
                 cv::Rect box = det.box & cv::Rect(0, 0, frame.cols, frame.rows);
                 if (box.area() <= 0) {
                     continue;
@@ -175,7 +184,7 @@ namespace ocr {
 
                 // ---- 识别 ----
                 const int64_t inferStart = nowMs();
-                RecResult res = m_rec->run(crop);
+                RecResult res = m_pipeline->run(crop);
                 lastInferMs = nowMs();
                 m_inferences.fetch_add(1);
                 ++processed;
@@ -223,6 +232,11 @@ namespace ocr {
                     entry.rawVotes = bestCount;
 
                     if (!bestDigits.empty() && bestCount >= m_cfg.minVotes) {
+                        if (entry.digits != bestDigits) {
+                            AppLogger::get().info("[OCR] 确认编号 \"{}\" (票数 {}/{}, conf={:.2f}, roi {},{},{},{})",
+                                bestDigits, bestCount, static_cast<int>(votes.size()),
+                                res.confidence, roi.x, roi.y, roi.width, roi.height);
+                        }
                         entry.digits = bestDigits;
                         entry.confidence = res.confidence;
                     }

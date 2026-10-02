@@ -19,15 +19,16 @@ public:
         // --- 软件 AE 配置 ---
         bool ae_enable = true;
         double ae_target_brightness = 0.4;
-        int ae_exposure_min = -10;
-        int ae_exposure_max = -2;
+        int ae_exposure_min = 1;             // 相机真实量程 1~10000（1=最暗）
+        int ae_exposure_max = 10000;         // 10000=最亮
         double ae_kp = 0.3;
         double ae_ki = 0.02;
         int ae_update_interval = 5;          // 调节冷却帧数
         double ae_deadband = 0.15;           // 亮度死区
     };
 
-    explicit CaptureThread(int cameraIndex, const Config& config = {});
+    explicit CaptureThread(int cameraIndex);
+    explicit CaptureThread(int cameraIndex, const Config& config);
     ~CaptureThread();
 
     void start();

@@ -35,7 +35,7 @@ namespace YoloConfig {
 class YoloV8TensorRT {
 public:
     explicit YoloV8TensorRT(const std::string& engine_file_path, const std::string& classes_path);
-    void detectionLoop(int actualWidth, int actualHeight, std::stop_token st = {});
+    void detectionLoop(int actualWidth, int actualHeight, int frame_stride, std::stop_token st = {});
     ~YoloV8TensorRT();
 
     std::vector<Detection> infer(const cv::Mat& frame, int orig_img_w, int orig_img_h);
@@ -65,14 +65,17 @@ private:
 
     // pre-allocated CPU Mats to avoid per-frame allocation
     cv::Mat m_resized;      // resize result
-    cv::Mat m_letterboxed;  // 640x640 CV_8UC3 (letterbox)
-    cv::Mat m_float;        // 640x640 CV_32FC3
-    cv::Mat m_rgb;          // 640x640 CV_32FC3 (RGB)
+    cv::Mat m_letterboxed;  // 模型输入尺寸 CV_8UC3 (letterbox)
+    cv::Mat m_float;        // 模型输入尺寸 CV_32FC3
+    cv::Mat m_rgb;          // 模型输入尺寸 CV_32FC3 (RGB)
 
-    // pre-allocated split channel outputs (640x640 CV_32FC1 each)
+    // pre-allocated split channel outputs (模型输入尺寸 CV_32FC1 each)
     cv::Mat m_channel_r;
     cv::Mat m_channel_g;
     cv::Mat m_channel_b;
+
+    int m_input_w = 640;    // 模型输入宽（从引擎读取；天井1280 / 图案640）
+    int m_input_h = 640;    // 模型输入高
 
     bool m_ready = false;
     std::string classesPath{};

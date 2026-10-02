@@ -70,7 +70,7 @@ private:
      * 使用 mutable 允许在 const 成员函数（如 getFrame()）中执行原子 store/load。
      * 指向的 cv::Mat 由 shared_ptr 管理生命周期，确保读取线程安全。
      */
-    mutable std::atomic<std::shared_ptr<cv::Mat>> current_frame_{ nullptr };
+    mutable std::shared_ptr<cv::Mat> current_frame_{ nullptr };  // 由 frame_mutex_ 保护（GCC11 无 std::atomic<shared_ptr>）
 
     /**
      * @brief 帧更新计数器，每次 updateFrame 成功后递增。
@@ -90,6 +90,11 @@ private:
      * mutable 允许在 const 上下文中锁定（虽然此处未在 const 函数中使用，但保持一致性）。
      */
     mutable std::mutex staging_mutex_;
+
+    /**
+     * @brief 保护 current_frame_ 的互斥锁。
+     */
+    mutable std::mutex frame_mutex_;
 };
 
 /**

@@ -1,10 +1,15 @@
 // CaptureThread.cpp
 #include "CaptureThread.h"
 #include <chrono>
+#include <cmath>
 #include "AppLogger.h"
 #include <stdexcept>
 
 extern int actualWidth, actualHeight, actualFPS;
+
+CaptureThread::CaptureThread(int cameraIndex)
+    : CaptureThread(cameraIndex, Config{}) {
+}
 
 CaptureThread::CaptureThread(int cameraIndex, const Config& config)
     : cameraIndex_(cameraIndex), config_(config), running_(false) {
@@ -18,7 +23,19 @@ void CaptureThread::start() {
     if (running_.exchange(true)) return;
 
     try {
-        cap_.open(cameraIndex_ + cv::CAP_DSHOW);
+        // 相机可能被地面录像(camera_recorder)短暂持有：它约2秒轮询一次并主动让出。
+        // 这里重试等待最多 ~13.5 秒，避免"程序先启动、录像后让出"时启动即失败（飞行关键路径）。
+        for (int attempt = 0; attempt < 10; ++attempt) {
+            if (attempt > 0) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+            }
+#ifdef _WIN32
+            cap_.open(cameraIndex_ + cv::CAP_DSHOW);
+#else
+            cap_.open(cameraIndex_, cv::CAP_V4L2);
+#endif
+            if (cap_.isOpened()) break;
+        }
         if (!cap_.isOpened()) {
             throw std::runtime_error("无法打开摄像头索引: " + std::to_string(cameraIndex_));
         }
@@ -114,15 +131,22 @@ void CaptureThread::run() {
                     ae_integral_ += error;
                     ae_integral_ = std::clamp(ae_integral_, -5.0, 5.0);
 
-                    double adj = config_.ae_kp * error + config_.ae_ki * ae_integral_;
-                    int target_exposure = current_exposure_ + static_cast<int>(adj * 10.0);
+                    // 曝光效果≈线性于曝光时长：按"目标/当前亮度"比例步进(半步长)，
+                    // 相机真实量程 1~10000 下数步收敛（原加法步进只适配已废弃的负数小量程）
+                    double ratio = config_.ae_target_brightness / std::max(brightness, 0.02);
+                    ratio = std::clamp(ratio, 0.25, 4.0);   // 单次最多 ±4 倍，防过冲
+                    int target_exposure = static_cast<int>(current_exposure_ * std::sqrt(ratio));
+                    if (target_exposure == current_exposure_) {
+                        // 最小步进：曝光值很小时乘法取整会原地踏步，强制 ±1 保证能爬出边界
+                        target_exposure = current_exposure_ + (error > 0 ? 1 : -1);
+                    }
                     target_exposure = std::clamp(target_exposure, config_.ae_exposure_min, config_.ae_exposure_max);
 
                     if (target_exposure != current_exposure_) {
                         cap_.set(cv::CAP_PROP_AUTO_EXPOSURE, 0.25);
                         cap_.set(cv::CAP_PROP_EXPOSURE, target_exposure);
-                        AppLogger::get().info("AE_ADJ: exposure {} -> {} (brightness={:.3f} error={:.3f} integral={:.3f} adj={:.3f})",
-                            current_exposure_, target_exposure, brightness, error, ae_integral_, adj);
+                        AppLogger::get().info("AE_ADJ: exposure {} -> {} (brightness={:.3f} target={:.2f})",
+                            current_exposure_, target_exposure, brightness, config_.ae_target_brightness);
                         current_exposure_ = target_exposure;
                         ae_cooldown_ = config_.ae_update_interval;  // 调完进入冷却
                     }

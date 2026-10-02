@@ -40,17 +40,13 @@ public:
     void requestAllDataStreams();// 请求飞控所有数据流（GPS/姿态/舵机/遥控等）
     void requestGpsDataStreams();// 请求 GPS 数据流（GPS_RAW_INT + GLOBAL_POSITION_INT）
     bool uploadMissionWaypoints(double initial_lat, double initial_lon, double takeoff_heading);// 生成并上传航点到飞控
+    bool uploadFallbackMission(double initial_lat, double initial_lon, double takeoff_heading);// 上传兜底航线（识别超时后切 AUTO 飞，含 DO_SET_SERVO）
 
     // === 高层命令 ===
     bool setFlightMode(uint8_t flight_mode);// 设置飞行模式
     bool setMissionCurrent(uint16_t seq);// 设置当前任务序号（投弹后跳降落段）
-    void sendGuidedPositionGPS(double lat_deg, double lon_deg, float alt_amsl, float yaw_deg);// 发送引导模式的全局位置控制命令
-    void sendGuidedVelocity(float vx, float vy, float vz, float yaw_rate);// 发送引导模式速度控制命令
     void sendServoPWM(uint8_t servo_n, uint16_t pwm_value);// 发送舵机PWM控制命令
-    void setup_guided_position_local(mavlink_message_t& msg, float x, float y, float z, float yaw);//基于本地坐标系位置
     void setup_guided_position_gps(mavlink_message_t& msg, double  lat_deg, double  lon_deg, float  alt_amsl, float yaw);// 基于GPS坐标系位置
-    void setup_guided_position_body(mavlink_message_t& msg, float x, float y, float z, float yaw);// 基于机体坐标系位置
-    void setup_guided_velocity(mavlink_message_t& msg, float vx, float vy, float vz, float yaw_rate);// 基于机体坐标系速度
 
     // 数据获取接口
     bool try_get_mission_ack_data(mavlink_mission_ack_t& mission_ack_data);// 获取任务完成状态
@@ -78,6 +74,7 @@ public:
     double getHeartbeatRate() const;                         // 心跳频率(Hz)
     bool isAutopilotIdentified() const;                      // 是否已识别飞控
     bool try_get_heartbeat_info(uint8_t& autopilot, uint8_t& type, uint8_t& system_status) const;
+    bool is_armed() const;                                    // 飞控是否已解锁（心跳 base_mode 的 SAFETY_ARMED 位）
 
     // === 静态转换函数 ===
     static const char* autopilotToString(uint8_t autopilot);
@@ -93,6 +90,8 @@ private:
 
     // 航点生成与发送
     std::vector<mavlink_mission_item_t> buildMissionWaypoints(double takeoff_landing_lat, double takeoff_landing_lon, double takeoff_heading);// 构建航点列表
+    std::vector<mavlink_mission_item_t> buildFallbackMissionWaypoints(double takeoff_landing_lat, double takeoff_landing_lon, double takeoff_heading);// 构建兜底航线（route[fallback_start_index] 起 + DO_SET_SERVO）
+    bool uploadMissionItems(const std::vector<mavlink_mission_item_t>& waypoints);// 上传航点列表（MISSION_COUNT→请求循环→ACK）
     void requestMessageInterval(uint16_t msg_id, float hz);// 请求单个MAVLink消息流
 
     // 发送队列（线程安全）

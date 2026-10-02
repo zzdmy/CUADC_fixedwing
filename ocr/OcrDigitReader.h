@@ -22,7 +22,7 @@
 
 #include <opencv2/core.hpp>
 
-#include "ocr/PaddleOCRRec.h"
+#include "ocr/OcrPipeline.h"
 
 namespace ocr {
 
@@ -41,6 +41,7 @@ namespace ocr {
         bool enabled = true;
         bool startEnabled = false;          // 初始是否允许识别（由任务状态驱动）
         std::vector<std::string> triggers;  // 触发场景：recon / bomb（空=全部允许）
+        std::vector<int> keepClassIds;      // 只对这些 YOLO 类别做 OCR（空=全部；任务二只取 bucket 类）
 
         float minBoxWidth = 16.0f;          // 过滤过小的框（像素）
         float minBoxHeight = 8.0f;
@@ -56,14 +57,14 @@ namespace ocr {
 
     class OcrDigitReader {
     public:
-        OcrDigitReader(OcrConfig cfg, PaddleRecConfig recCfg);
+        OcrDigitReader(OcrConfig cfg, OcrPipelineConfig pipelineCfg);
         ~OcrDigitReader();
 
         OcrDigitReader(const OcrDigitReader&) = delete;
         OcrDigitReader& operator=(const OcrDigitReader&) = delete;
 
         /// @brief 引擎是否可用（false 时 start() 不会起线程）。
-        bool isReady() const { return m_rec && m_rec->isReady(); }
+        bool isReady() const { return m_pipeline && m_pipeline->isReady(); }
 
         /// @brief 启动后台识别线程。
         void start();
@@ -102,8 +103,8 @@ namespace ocr {
         void pruneLocked(int64_t nowMs) const;
 
         OcrConfig m_cfg;
-        PaddleRecConfig m_recCfg;
-        std::unique_ptr<PaddleOCRRec> m_rec;
+        OcrPipelineConfig m_pipelineCfg;
+        std::unique_ptr<OcrPipeline> m_pipeline;
 
         std::jthread m_thread;
         std::atomic<bool> m_running{ false };

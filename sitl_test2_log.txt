@@ -1,0 +1,8 @@
+[2026-10-03 16:16:43] [info] 配置文件加载完成（含固定翼配置 19 条航线）
+[2026-10-03 16:16:43] [info] 配置文件加载完成, 通信方式: tcp
+[2026-10-03 16:16:43] [info] 未找到采集卡设备，使用第一个可用摄像头: ASUS FHD webcam
+[2026-10-03 16:16:44] [info] 后端: DSHOW
+[2026-10-03 16:16:45] [info] 分辨率设置成功: 1920x1080
+[2026-10-03 16:16:46] [info] AE: 软件 AE 已禁用，使用摄像头自动曝光
+[2026-10-03 16:16:46] [info] 捕获线程已启动 (1920x1080@0fps)
+[2026-10-03 16:16:48] [error] 发生错误：connect: ����Ŀ�����������ܾ����޷����ӡ� [system:10061 at C:\Users\33083\vcpkg\installed\x64-windows\include\boost\asio\detail\win_iocp_socket_service.hpp:629:5 in function 'class boost::system::error_code __cdecl boost::asio::detail::win_iocp_socket_service<class boost::asio::ip::tcp>::connect(struct boost::asio::detail::win_iocp_socket_service<class boost::asio::ip::tcp>::implementation_type &,const class boost::asio::ip::basic_endpoint<class boost::asio::ip::tcp> &,class boost::system::error_code &)']

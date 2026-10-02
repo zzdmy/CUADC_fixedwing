@@ -4,6 +4,8 @@
 #include <GeographicLib/Geodesic.hpp>
 #include <algorithm>
 #include <cmath>
+#include <sstream>
+#include <iomanip>
 #include "../AppLogger.h"
 
 GPSTargetClusterer::GPSTargetClusterer(std::shared_ptr<PixelToGPSConverter> converter,
@@ -26,13 +28,13 @@ void GPSTargetClusterer::update(const std::vector<yoloout>& detections,
                                 double drone_yaw_rad) {
     frame_count_++;
 
-    // Collect boxes and class IDs from "toudan" detections
-    // TODO(多类模型就绪后)：去掉单类过滤，保留所有目标类别；class_id 已随簇保存，
-    // 规则选目标（价值最高/中位数）在 MissionScheduler 侧用簇的 class_id 完成。
+    // Collect boxes and class IDs from detections matching target_class_
+    // (task2: "bucket"=天井；task1: 空字符串 = 全类别，class_id 已随簇保存，
+    //  价值最高/中位数规则在 MissionScheduler 侧用簇的 class_id 完成)
     std::vector<cv::Rect> boxes;
     std::vector<int> classIds;
     for (const auto& det : detections) {
-        if (det.name == target_class_) {
+        if (target_class_.empty() || det.name == target_class_) {
             boxes.push_back(det.box);
             classIds.push_back(det.classId);
         }
@@ -43,6 +45,11 @@ void GPSTargetClusterer::update(const std::vector<yoloout>& detections,
             c.frames_since_update++;
         }
         // Remove stale
+        for (const auto& c : clusters_) {
+            if (c.frames_since_update > max_age_frames_) {
+                AppLogger::get().info("[聚类] C{} 丢失 ({}帧未更新)", c.id, c.frames_since_update);
+            }
+        }
         clusters_.erase(
             std::remove_if(clusters_.begin(), clusters_.end(),
                 [this](const Cluster& c) {
@@ -86,6 +93,10 @@ void GPSTargetClusterer::update(const std::vector<yoloout>& detections,
             c.class_id = t.classId;   // 记录类别（多类模型就绪后用）
             c.sample_count++;
             c.frames_since_update = 0;
+            if (c.sample_count == min_samples_) {
+                AppLogger::get().info("[聚类] C{} 达到稳定 (样本{}): GPS({:.7f},{:.7f}) body=({:.2f},{:.2f})m",
+                    c.id, c.sample_count, c.lat, c.lon, c.body_x, c.body_y);
+            }
         }
         else if (static_cast<int>(clusters_.size()) < max_targets_) {
             // Create new cluster
@@ -100,6 +111,9 @@ void GPSTargetClusterer::update(const std::vector<yoloout>& detections,
             c.sample_count = 1;
             c.frames_since_update = 0;
             clusters_.push_back(c);
+            AppLogger::get().info("[聚类] 新目标 C{}: GPS({:.7f},{:.7f}) body=({:.2f},{:.2f})m box({},{},{}x{})",
+                c.id, c.lat, c.lon, c.body_x, c.body_y,
+                c.avg_box.x, c.avg_box.y, c.avg_box.width, c.avg_box.height);
         }
         // else: detection too far from any cluster and max_targets reached — discard
     }
@@ -110,6 +124,11 @@ void GPSTargetClusterer::update(const std::vector<yoloout>& detections,
     }
 
     // Remove stale clusters
+    for (const auto& c : clusters_) {
+        if (c.frames_since_update > max_age_frames_) {
+            AppLogger::get().info("[聚类] C{} 丢失 ({}帧未更新)", c.id, c.frames_since_update);
+        }
+    }
     clusters_.erase(
         std::remove_if(clusters_.begin(), clusters_.end(),
             [this](const Cluster& c) {
@@ -117,11 +136,14 @@ void GPSTargetClusterer::update(const std::vector<yoloout>& detections,
             }),
         clusters_.end());
 
-    // Output body-frame positions for all active clusters
-    if (!clusters_.empty()) {
+    // 周期状态（约每秒一条，防刷屏）：各簇 body 位置/样本数
+    if (!clusters_.empty() && frame_count_ % 5 == 0) {
+        std::ostringstream oss;
         for (const auto& c : clusters_) {
-            AppLogger::get().info("[F:{}] C{} body_x={:.2f} body_y={:.2f}", frame_count_, c.id, c.body_x, c.body_y);
+            oss << " C" << c.id << "(" << std::fixed << std::setprecision(1)
+                << c.body_x << "," << c.body_y << ")n=" << c.sample_count;
         }
+        AppLogger::get().info("[聚类] 状态:{}", oss.str());
     }
 }
 

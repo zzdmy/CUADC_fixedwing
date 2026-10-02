@@ -43,13 +43,14 @@ std::shared_ptr<const cv::Mat> FrameDispatcher::getFrame() const {
     // 如果取到新帧，原子更新 current_frame_
     if (local_frame) {
         //现在可以调用 store() 了，因为 current_frame_ 是 mutable
-        current_frame_.store(local_frame, std::memory_order_release);
+        { std::lock_guard<std::mutex> lock(frame_mutex_); current_frame_ = local_frame; }
         // 返回 const 视图
         return std::const_pointer_cast<const cv::Mat>(local_frame);
     }
 
     // 否则返回当前帧的 const 视图
-    auto raw_ptr = current_frame_.load(std::memory_order_acquire);
+    std::shared_ptr<cv::Mat> raw_ptr;
+    { std::lock_guard<std::mutex> lock(frame_mutex_); raw_ptr = current_frame_; }
     if (raw_ptr) {
         return std::const_pointer_cast<const cv::Mat>(raw_ptr);
     }

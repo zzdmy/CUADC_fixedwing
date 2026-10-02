@@ -72,24 +72,18 @@ AppConfig load_config_from_yaml(const std::string& path) {
 
     // control
     auto ctrl = root["control"];
-    cfg.control.kp = ctrl["kp"].as<float>(cfg.control.kp);
-    cfg.control.deadzone_x = ctrl["deadzone_x"].as<float>(cfg.control.deadzone_x);
-    cfg.control.deadzone_y = ctrl["deadzone_y"].as<float>(cfg.control.deadzone_y);
-    cfg.control.deadzone_big = ctrl["deadzone_big"].as<float>(cfg.control.deadzone_big);
-    cfg.control.max_speed = ctrl["max_speed"].as<float>(cfg.control.max_speed);
     cfg.control.initial_heading = ctrl["initial_heading"].as<double>(cfg.control.initial_heading);
     cfg.control.auto_heading = ctrl["auto_heading"].as<bool>(cfg.control.auto_heading);
     cfg.control.magnetic_declination = ctrl["magnetic_declination"].as<double>(cfg.control.magnetic_declination);
     cfg.control.toudan_time_out = ctrl["toudan_time_out"].as<int>(cfg.control.toudan_time_out);
+    cfg.control.manual_observe = ctrl["manual_observe"].as<bool>(cfg.control.manual_observe);
+    cfg.control.enable_display = ctrl["enable_display"].as<bool>(cfg.control.enable_display);
     cfg.control.gps_arrival_threshold_m = ctrl["gps_arrival_threshold_m"].as<double>(cfg.control.gps_arrival_threshold_m);
     cfg.control.gps_fly_timeout_ms = ctrl["gps_fly_timeout_ms"].as<int>(cfg.control.gps_fly_timeout_ms);
     cfg.control.max_search_radius_m = ctrl["max_search_radius_m"].as<double>(cfg.control.max_search_radius_m);
-	cfg.control.servo_channel_left = ctrl["servo_channel_left"].as<int>(cfg.control.servo_channel_left);
-	cfg.control.servo_channel_right = ctrl["servo_channel_right"].as<int>(cfg.control.servo_channel_right);
-	cfg.control.servo_offset_left_x = ctrl["servo_offset_left_x"].as<int>(cfg.control.servo_offset_left_x);
-	cfg.control.servo_offset_right_x = ctrl["servo_offset_right_x"].as<int>(cfg.control.servo_offset_right_x);
-	cfg.control.servo_release_pwm_left = ctrl["servo_release_pwm_left"].as<int>(cfg.control.servo_release_pwm_left);
-	cfg.control.servo_release_pwm_right = ctrl["servo_release_pwm_right"].as<int>(cfg.control.servo_release_pwm_right);
+	cfg.control.simulate_home = ctrl["simulate_home"].as<bool>(cfg.control.simulate_home);
+	cfg.control.sim_home_lat = ctrl["sim_home_lat"].as<double>(cfg.control.sim_home_lat);
+	cfg.control.sim_home_lon = ctrl["sim_home_lon"].as<double>(cfg.control.sim_home_lon);
 
     // yolo
     auto yolo = root["yolo"];
@@ -98,26 +92,13 @@ AppConfig load_config_from_yaml(const std::string& path) {
     cfg.yolo.engine_path = yolo["engine_path"].as<std::string>(cfg.yolo.engine_path);
     cfg.yolo.class_path = yolo["class_path"].as<std::string>(cfg.yolo.class_path);
     cfg.yolo.use_gpu = yolo["use_gpu"].as<bool>(cfg.yolo.use_gpu);
-    cfg.yolo.recon_model_path = yolo["recon_model_path"].as<std::string>(cfg.yolo.recon_model_path);
-    cfg.yolo.recon_class_path = yolo["recon_class_path"].as<std::string>(cfg.yolo.recon_class_path);
-    // 从类文件第一行读取侦察校准目标类名
-    {   std::ifstream f(cfg.yolo.recon_class_path);
-        if (f.is_open()) std::getline(f, cfg.yolo.recon_target_class); }
-
-    // waypoint
-    auto wp = root["waypoint"];
-    cfg.waypoint.default_altitude = wp["default_altitude"].as<double>(cfg.waypoint.default_altitude);
-    cfg.waypoint.distance_to_drop_zone = wp["distance_to_drop_zone"].as<double>(cfg.waypoint.distance_to_drop_zone);
-    cfg.waypoint.distance_to_recon1 = wp["distance_to_recon1"].as<double>(cfg.waypoint.distance_to_recon1);
-    cfg.waypoint.distance_to_recon2 = wp["distance_to_recon2"].as<double>(cfg.waypoint.distance_to_recon2);
-    cfg.waypoint.recon_side_distance = wp["recon_side_distance"].as<double>(cfg.waypoint.recon_side_distance);
-    cfg.waypoint.delay_takeoff = wp["delay_takeoff"].as<float>(cfg.waypoint.delay_takeoff);
-    cfg.waypoint.delay_drop_point = wp["delay_drop_point"].as<float>(cfg.waypoint.delay_drop_point);
-    cfg.waypoint.delay_after_drop = wp["delay_after_drop"].as<float>(cfg.waypoint.delay_after_drop);
-    cfg.waypoint.delay_return = wp["delay_return"].as<float>(cfg.waypoint.delay_return);
-    cfg.waypoint.delay_recon_main = wp["delay_recon_main"].as<float>(cfg.waypoint.delay_recon_main);
-    cfg.waypoint.delay_recon_secondary = wp["delay_recon_secondary"].as<float>(cfg.waypoint.delay_recon_secondary);
-    cfg.waypoint.delay_recon_side = wp["delay_recon_side"].as<float>(cfg.waypoint.delay_recon_side);
+    cfg.yolo.well_model_path = yolo["well_model_path"].as<std::string>(cfg.yolo.well_model_path);
+    cfg.yolo.well_engine_path = yolo["well_engine_path"].as<std::string>(cfg.yolo.well_engine_path);
+    cfg.yolo.well_class_path = yolo["well_class_path"].as<std::string>(cfg.yolo.well_class_path);
+    cfg.yolo.pattern_model_path = yolo["pattern_model_path"].as<std::string>(cfg.yolo.pattern_model_path);
+    cfg.yolo.pattern_engine_path = yolo["pattern_engine_path"].as<std::string>(cfg.yolo.pattern_engine_path);
+    cfg.yolo.pattern_class_path = yolo["pattern_class_path"].as<std::string>(cfg.yolo.pattern_class_path);
+    cfg.yolo.detect_frame_stride = yolo["detect_frame_stride"].as<int>(cfg.yolo.detect_frame_stride);
 
     // rtk
     auto rtk = root["rtk"];
@@ -135,6 +116,13 @@ AppConfig load_config_from_yaml(const std::string& path) {
     cfg.rtk.fix_timeout_sec = rtk["fix_timeout_sec"].as<int>(cfg.rtk.fix_timeout_sec);
     cfg.rtk.allow_gps_flight = rtk["allow_gps_flight"].as<bool>(cfg.rtk.allow_gps_flight);
 
+    // record（机内录像，素材收集用）
+    auto rec = root["record"];
+    cfg.record.enable = rec["enable"].as<bool>(cfg.record.enable);
+    cfg.record.dir = rec["dir"].as<std::string>(cfg.record.dir);
+    cfg.record.segment_sec = rec["segment_sec"].as<int>(cfg.record.segment_sec);
+    cfg.record.max_total_gb = rec["max_total_gb"].as<double>(cfg.record.max_total_gb);
+
     // fixedwing（固定翼/ArduPlane）
     auto fw = root["fixedwing"];
     cfg.fixedwing.mode_auto = fw["mode_auto"].as<int>(cfg.fixedwing.mode_auto);
@@ -149,11 +137,14 @@ AppConfig load_config_from_yaml(const std::string& path) {
     cfg.fixedwing.entry_reach_radius_m = fw["entry_reach_radius_m"].as<double>(cfg.fixedwing.entry_reach_radius_m);
     cfg.fixedwing.drop_fall_time_s = fw["drop_fall_time_s"].as<double>(cfg.fixedwing.drop_fall_time_s);
     cfg.fixedwing.release_lead_offset_m = fw["release_lead_offset_m"].as<double>(cfg.fixedwing.release_lead_offset_m);
-    cfg.fixedwing.fallback_bearing_offset_deg = fw["fallback_bearing_offset_deg"].as<double>(cfg.fixedwing.fallback_bearing_offset_deg);
-    cfg.fixedwing.fallback_distance_m = fw["fallback_distance_m"].as<double>(cfg.fixedwing.fallback_distance_m);
+    cfg.fixedwing.fallback_start_index = fw["fallback_start_index"].as<int>(cfg.fixedwing.fallback_start_index);
     cfg.fixedwing.strike_handoff_seq = fw["strike_handoff_seq"].as<int>(cfg.fixedwing.strike_handoff_seq);
     cfg.fixedwing.landing_start_seq = fw["landing_start_seq"].as<int>(cfg.fixedwing.landing_start_seq);
     cfg.fixedwing.task_type = fw["task_type"].as<int>(cfg.fixedwing.task_type);
+    cfg.fixedwing.toudan_time_out_task1 = fw["toudan_time_out_task1"].as<int>(cfg.fixedwing.toudan_time_out_task1);
+    cfg.fixedwing.toudan_time_out_task2 = fw["toudan_time_out_task2"].as<int>(cfg.fixedwing.toudan_time_out_task2);
+    cfg.fixedwing.guided_entry_timeout_ms = fw["guided_entry_timeout_ms"].as<int>(cfg.fixedwing.guided_entry_timeout_ms);
+    cfg.fixedwing.guided_release_timeout_ms = fw["guided_release_timeout_ms"].as<int>(cfg.fixedwing.guided_release_timeout_ms);
     if (fw["route"].IsSequence()) {
         cfg.fixedwing.route.clear();
         for (const auto& n : fw["route"]) {
@@ -176,6 +167,16 @@ AppConfig load_config_from_yaml(const std::string& path) {
     cfg.ocr.digit_only = ocr["digit_only"].as<bool>(cfg.ocr.digit_only);
     cfg.ocr.use_fp16 = ocr["use_fp16"].as<bool>(cfg.ocr.use_fp16);
     cfg.ocr.rec_max_width = ocr["rec_max_width"].as<int>(cfg.ocr.rec_max_width);
+    cfg.ocr.use_det = ocr["use_det"].as<bool>(cfg.ocr.use_det);
+    cfg.ocr.det_onnx_path = ocr["det_onnx_path"].as<std::string>(cfg.ocr.det_onnx_path);
+    cfg.ocr.det_engine_path = ocr["det_engine_path"].as<std::string>(cfg.ocr.det_engine_path);
+    cfg.ocr.det_limit_side = ocr["det_limit_side"].as<int>(cfg.ocr.det_limit_side);
+    cfg.ocr.det_box_thresh = ocr["det_box_thresh"].as<float>(cfg.ocr.det_box_thresh);
+    cfg.ocr.det_thresh = ocr["det_thresh"].as<float>(cfg.ocr.det_thresh);
+    cfg.ocr.det_unclip_ratio = ocr["det_unclip_ratio"].as<float>(cfg.ocr.det_unclip_ratio);
+    cfg.ocr.use_ori = ocr["use_ori"].as<bool>(cfg.ocr.use_ori);
+    cfg.ocr.ori_onnx_path = ocr["ori_onnx_path"].as<std::string>(cfg.ocr.ori_onnx_path);
+    cfg.ocr.ori_engine_path = ocr["ori_engine_path"].as<std::string>(cfg.ocr.ori_engine_path);
     cfg.ocr.min_box_width = ocr["min_box_width"].as<float>(cfg.ocr.min_box_width);
     cfg.ocr.min_box_height = ocr["min_box_height"].as<float>(cfg.ocr.min_box_height);
     cfg.ocr.max_boxes_per_cycle = ocr["max_boxes_per_cycle"].as<int>(cfg.ocr.max_boxes_per_cycle);

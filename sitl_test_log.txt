@@ -1,0 +1,131 @@
+[2026-10-02 20:44:53] [info] 配置文件加载完成（含固定翼配置 19 条航线）
+[2026-10-02 20:44:53] [info] 配置文件加载完成, 通信方式: tcp
+[2026-10-02 20:44:53] [info] 未找到采集卡设备，使用第一个可用摄像头: ASUS FHD webcam
+[2026-10-02 20:44:54] [info] 后端: DSHOW
+[2026-10-02 20:44:56] [info] 分辨率设置成功: 1920x1080
+[2026-10-02 20:44:56] [info] AE: 软件 AE 已禁用，使用摄像头自动曝光
+[2026-10-02 20:44:56] [info] 捕获线程已启动 (1920x1080@0fps)
+[2026-10-02 20:44:56] [info] TCP connected to 127.0.0.1:5762
+[2026-10-02 20:44:56] [info] MAVLink处理器已启动 (system_id=2, transport=tcp)
+[2026-10-02 20:44:56] [info] 连接建立，IO 线程运行中...
+[2026-10-02 20:44:56] [info] 飞控识别: ArduPilot / 固定翼
+[2026-10-02 20:44:56] [info] 收到
+[2026-10-02 20:44:56] [info] 消息ID:24
+[2026-10-02 20:44:56] [info]   间隔: 200000 微秒 (5 Hz)
+[2026-10-02 20:44:57] [info] 相机参数加载完成
+[2026-10-02 20:44:57] [info] 启动任务调度器完成
+[2026-10-02 20:44:57] [info] [RTK] Service started, waiting for GPS...
+[2026-10-02 20:44:57] [info] RTK客户端已启动, NTRIP服务器: 124.221.132.21:8002
+[2026-10-02 20:44:57] [info] [RTK] GPS accuracy reached, connecting to NTRIP...
+[2026-10-02 20:44:57] [info] [RTK] Connecting to 124.221.132.21:8002 (attempt 1/3
+[2026-10-02 20:44:57] [info] 收到
+[2026-10-02 20:44:57] [info] 消息ID:33
+[2026-10-02 20:44:57] [info]   间隔: 200000 微秒 (5 Hz)
+[2026-10-02 20:44:57] [info] 收到
+[2026-10-02 20:44:57] [info] 消息ID:24
+[2026-10-02 20:44:57] [info]   间隔: 200000 微秒 (5 Hz)
+[2026-10-02 20:44:57] [info] [RTK] Server response: HTTP/1.0 401 Unauthorized
+[2026-10-02 20:44:57] [error] [RTK] NTRIP connection rejected!
+[2026-10-02 20:44:57] [error] [RTK] Error: NTRIP rejected
+[2026-10-02 20:44:57] [info] [RTK] Will retry in 5s (attempt 1/3)
+[2026-10-02 20:44:57] [info] [TensorRT] Deserialization required 6354 microseconds.
+[2026-10-02 20:44:57] [info] [TensorRT] Total per-runner device persistent memory is 0
+[2026-10-02 20:44:57] [info] [TensorRT] Total per-runner host persistent memory is 80
+[2026-10-02 20:44:57] [info] [TensorRT] Allocated device scratch memory of size 17205248
+[2026-10-02 20:44:57] [info] [TensorRT] - Runner scratch: 17205248 bytes
+[2026-10-02 20:44:57] [info] [TensorRT] CUDA lazy loading is enabled.
+[2026-10-02 20:44:57] [info] Engine loaded successfully!
+[2026-10-02 20:44:57] [info] Detector initialized successfully.
+[2026-10-02 20:44:57] [info] YOLO检测线程已启动, 后端: tensorrt, 模型: best_7.26.onnx
+[2026-10-02 20:44:57] [info] 显示线程已启动
+[2026-10-02 20:44:57] [info] OCR 字符字典已加载(文件): charset=18708 digits=20 head=[1:!,2:",3:#]
+[2026-10-02 20:44:57] [info] 加载缓存 OCR engine: PP-OCRv6_medium_rec.engine
+[2026-10-02 20:44:57] [warning] [TRT-OCR] WARNING The logger passed into createInferRuntime differs from one already registered for an existing builder, runtime, or refitter. So the current new logger is ignored, and TensorRT will use the existing one which is returned by nvinfer1::getLogger() instead.
+[2026-10-02 20:44:57] [info] 收到
+[2026-10-02 20:44:57] [info] 消息ID:33
+[2026-10-02 20:44:57] [info]   间隔: 200000 微秒 (5 Hz)
+[2026-10-02 20:44:57] [info] 收到
+[2026-10-02 20:44:57] [info] 消息ID:85
+[2026-10-02 20:44:57] [info]   间隔: 1000000 微秒 (1 Hz)
+[2026-10-02 20:44:57] [info] OCR 输入张量: 'x'
+[2026-10-02 20:44:57] [info] OCR 输出张量(CTC): 'fetch_name_0' C=18710
+[2026-10-02 20:44:57] [info] OCR 输出缓冲: [1 x 40 x 18710] = 2923 KB
+[2026-10-02 20:44:57] [info] OCR 识别引擎就绪: W=[16,320] classes=18710 backend=TensorRT
+[2026-10-02 20:44:57] [info] 加载缓存 OCR engine: PP-OCRv6_medium_det.engine
+[2026-10-02 20:44:57] [warning] [TRT-OCR] WARNING The logger passed into createInferRuntime differs from one already registered for an existing builder, runtime, or refitter. So the current new logger is ignored, and TensorRT will use the existing one which is returned by nvinfer1::getLogger() instead.
+[2026-10-02 20:44:57] [info] OCR 引擎就绪: in='x' out='fetch_name_0'
+[2026-10-02 20:44:57] [info] 加载缓存 OCR engine: PP-LCNet_x1_0_textline_ori.engine
+[2026-10-02 20:44:57] [warning] [TRT-OCR] WARNING The logger passed into createInferRuntime differs from one already registered for an existing builder, runtime, or refitter. So the current new logger is ignored, and TensorRT will use the existing one which is returned by nvinfer1::getLogger() instead.
+[2026-10-02 20:44:57] [info] OCR 引擎就绪: in='x' out='fetch_name_0'
+[2026-10-02 20:44:57] [info] OCR 识别线程已启动 (触发场景: bomb,recon)
+[2026-10-02 20:44:57] [info] 编号 OCR 已就绪: 触发场景=bomb,recon
+[2026-10-02 20:44:58] [info] 收到
+[2026-10-02 20:44:58] [info] 消息ID:36
+[2026-10-02 20:44:58] [info]   间隔: 500000 微秒 (2 Hz)
+[2026-10-02 20:44:58] [info] 收到
+[2026-10-02 20:44:58] [info] 消息ID:65
+[2026-10-02 20:44:58] [info]   间隔: 333000 微秒 (3.0030031 Hz)
+[2026-10-02 20:44:59] [info] 收到
+[2026-10-02 20:44:59] [info] 消息ID:30
+[2026-10-02 20:44:59] [info]   间隔: 333000 微秒 (3.0030031 Hz)
+[2026-10-02 20:44:59] [info] 收到
+[2026-10-02 20:44:59] [info] 消息ID:132
+[2026-10-02 20:44:59] [info]   间隔: 200000 微秒 (5 Hz)
+[2026-10-02 20:45:00] [info] 收到
+[2026-10-02 20:45:00] [info] 消息ID:42
+[2026-10-02 20:45:00] [info]   间隔: 1000000 微秒 (1 Hz)
+[2026-10-02 20:45:00] [info] [RTK] Waiting for RTK FIX (fix_type >= 6)...
+[2026-10-02 20:45:00] [info]   纬度: 30.2940659, 经度: 104.3794161, 水平精度: 0.300m, 卫星: 10, fix_type: 6
+[2026-10-02 20:45:00] [info] [HOME] MAV_CMD_DO_SET_HOME sent (use current position)
+[2026-10-02 20:45:00] [info] [RTK] FIX achieved (type=6), global origin reset done.
+[2026-10-02 20:45:00] [info] [航向] 自动读机头磁航向 359.1° + 磁偏角 0.0° = 真北航向 359.1°
+[2026-10-02 20:45:00] [info] 已发送 MISSION_COUNT = 21
+[2026-10-02 20:45:00] [info] 发送航点 seq=0 (cmd=16)
+[2026-10-02 20:45:00] [info] 发送航点 seq=1 (cmd=22)
+[2026-10-02 20:45:00] [info] 发送航点 seq=2 (cmd=16)
+[2026-10-02 20:45:00] [info] 发送航点 seq=3 (cmd=16)
+[2026-10-02 20:45:00] [info] 发送航点 seq=4 (cmd=16)
+[2026-10-02 20:45:00] [info] 发送航点 seq=5 (cmd=16)
+[2026-10-02 20:45:00] [info] 发送航点 seq=6 (cmd=16)
+[2026-10-02 20:45:00] [info] 发送航点 seq=7 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=8 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=9 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=10 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=11 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=12 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=13 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=14 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=15 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=16 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=17 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=18 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=19 (cmd=16)
+[2026-10-02 20:45:01] [info] 发送航点 seq=20 (cmd=21)
+[2026-10-02 20:45:01] [info] 任务确认:
+[2026-10-02 20:45:01] [info] 目标系统:2
+[2026-10-02 20:45:01] [info] 目标组件:190
+[2026-10-02 20:45:01] [info] 结果: 成功
+[2026-10-02 20:45:01] [info]   任务类型: 0
+[2026-10-02 20:45:01] [info]   任务ID: 0
+[2026-10-02 20:45:01] [info] 航点任务上传成功！飞控返回: MAV_MISSION_ACCEPTED
+[2026-10-02 20:45:02] [info] 系统状态: 心跳(4.7Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连/0帧) 线程(捕获29fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:02] [info] [RTK] Connecting to 124.221.132.21:8002 (attempt 2/3
+[2026-10-02 20:45:02] [info] [RTK] Server response: HTTP/1.0 401 Unauthorized
+[2026-10-02 20:45:02] [error] [RTK] NTRIP connection rejected!
+[2026-10-02 20:45:02] [error] [RTK] Error: NTRIP rejected
+[2026-10-02 20:45:02] [info] [RTK] Will retry in 5s (attempt 2/3)
+[2026-10-02 20:45:02] [info] 等待起飞
+[2026-10-02 20:45:07] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连/0帧) 线程(捕获29fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:07] [info] [RTK] Connecting to 124.221.132.21:8002 (attempt 3/3
+[2026-10-02 20:45:07] [info] [RTK] Server response: HTTP/1.0 401 Unauthorized
+[2026-10-02 20:45:07] [error] [RTK] NTRIP connection rejected!
+[2026-10-02 20:45:07] [error] [RTK] Error: NTRIP rejected
+[2026-10-02 20:45:07] [info] [RTK] Will retry in 5s (attempt 3/3)
+[2026-10-02 20:45:12] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连/0帧) 线程(捕获29fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:12] [error] [RTK] Max reconnect attempts (3) exceeded, giving up.
+[2026-10-02 20:45:17] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连耗尽/0帧) 线程(捕获30fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:22] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连耗尽/0帧) 线程(捕获29fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:27] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连耗尽/0帧) 线程(捕获29fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:32] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连耗尽/0帧) 线程(捕获30fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:37] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连耗尽/0帧) 线程(捕获29fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)
+[2026-10-02 20:45:42] [info] 系统状态: 心跳(1.0Hz/ArduPilot/固定翼/待命/自动任务（Auto）) GPS(RTK固定/10星/HDOP=1.2) RTK(重连耗尽/0帧) 线程(捕获29fps/检测运行中/显示运行中/任务起飞中) OCR(待触发/0次推理/命中0/0ms)

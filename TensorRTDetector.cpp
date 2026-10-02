@@ -1,7 +1,8 @@
 #include "TensorRTDetector.h"
 #include "yolov8_trt_infer.hpp"
 
-TensorRTDetector::TensorRTDetector(const std::string& enginePath, const std::string& classPath) {
+TensorRTDetector::TensorRTDetector(const std::string& enginePath, const std::string& classPath, int frameStride)
+    : m_frame_stride(frameStride) {
     m_impl = std::make_unique<YoloV8TensorRT>(enginePath, classPath);
 }
 
@@ -13,7 +14,7 @@ void TensorRTDetector::startDetectionLoop(int width, int height) {
     if (!isInitialized() || m_running) return;
     m_running = true;
     m_thread = std::jthread([this, width, height](std::stop_token st) {
-        m_impl->detectionLoop(width, height, std::move(st));
+        m_impl->detectionLoop(width, height, m_frame_stride, std::move(st));
         });
 }
 

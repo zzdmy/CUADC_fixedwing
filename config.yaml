@@ -7,10 +7,10 @@
 communication:
   transport: tcp              # 传输方式: serial | tcp | udp
   serial:
-    port: "COM15"                # 串口号
+    port: "/dev/ttyUSB0"         # 串口号（Jetson）
     baud_rate: 115200            # 波特率
   tcp:
-    host: "127.0.0.1"            # TCP 服务端地址
+    host: "192.168.144.99"            # TCP 服务端地址（真实飞控）
     port: 5762                   # TCP 端口
   udp:
     host: "192.168.144.14"      # UDP 目标地址
@@ -29,12 +29,12 @@ camera:
   width: 1920                    # 采集分辨率宽度
   height: 1080                   # 采集分辨率高度
   fps: 60                        # 采集帧率
-  # 相机内参 (标定结果, RMS=0.61px)
-  fx: 933.8021
-  fy: 934.5064
-  cx: 983.2779
-  cy: 533.8812
-  dist_coeffs: [1.495591, -0.806241, 0.0, 0.0, -0.122542, 1.852959, -0.393572, -0.432129, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+  # 相机内参 (标定结果, 来自 Desktop\camera.yaml)
+  fx: 985.45200207942992
+  fy: 993.43090228228311
+  cx: 984.72200767419213
+  cy: 503.00686186068663
+  dist_coeffs: [-0.34926461362396044, 0.16223369651637359, -0.00094279502214977037, 0.0010467773265802067, -0.040878229156065427]
   # 相机安装偏移 (机体坐标系: X前 Y右 Z下, 单位米)
   tx: 0.0
   ty: 0.0
@@ -45,10 +45,10 @@ camera:
   mount_yaw: 0.0
   # --- 曝光控制 ---
   ae:
-    enable: false                   # 软件 AE 总开关
+    enable: true                   # 软件 AE 总开关
     target_brightness: 0.4        # 目标亮度 0~1（越低画面越暗、防过曝）
-    exposure_min: -10              # 曝光下限（调大=更亮）
-    exposure_max: -3               # 曝光上限（调大=更亮）
+    exposure_min: 1                # 曝光下限（相机真实量程 1~10000，1=最暗）
+    exposure_max: 10000            # 曝光上限（10000=最亮；实测明亮场景目标亮度约在 10~20）
     kp: 1.0                       # PI 比例系数
     ki: 0.001                      # PI 积分系数
     update_interval: 30            # 调节冷却帧数（每次调完等 N 帧再调，应对相机响应延时）
@@ -56,53 +56,43 @@ camera:
 
 
 
+# --- 机内录像（素材收集；比赛时 enable 改 false）---
+record:
+  enable: true             # record.enable = 主程序运行时录像（存 recordings/flt_*.mp4）
+  dir: "recordings"
+  segment_sec: 120         # 每段秒数（断电最多损失当前段）
+  max_total_gb: 80         # recordings 目录总量上限(GB)，超出自动删最旧
+
 # --- 飞行控制参数 ---
 control:
-  kp: 0.0005                     # P 比例系数 (从0.0001调高，改善稳定阶段收敛速度)
-  deadzone_x: 12.0                 # 最终死区阈值 (像素, X方向)
-  deadzone_y: 12.0                 # 最终死区阈值 (像素, Y方向)
-  deadzone_big: 100.0             # 一级死区阈值
-  max_speed: 0.2                 # 最大速度限制 
-  initial_heading: 179     # 起飞初始航向角 (度) —— 仅 auto_heading: false 时使用（手动兜底）
+  initial_heading: 216.3     # 起飞初始航向角 (度) —— 仅 auto_heading: false 时使用（手动兜底）
   auto_heading: true       # true=自动读机头航向（两个180°场地通用，无需改程序）
-  magnetic_declination: 0.0  # 磁偏角(度)：真北=磁北+磁偏角。飞控报真北填0；报磁北填当地磁偏角(中国约-2~-11)
+  magnetic_declination: -2.5748  # 磁偏角(度)：真北=磁北+磁偏角。飞控报真北填0；报磁北填当地磁偏角(中国约-2~-11)
   toudan_time_out: 30000        # 投弹超时时间 (毫秒)
-  manual_observe: true           # 精度验证: 拦截状态机，仅检测+输出body-frame偏移
+  manual_observe: false          # 精度验证: 拦截状态机，仅检测+输出body-frame偏移
+  enable_display: true           # true=显示视频窗口(桌面调试)；机载无屏运行时设 false
   gps_arrival_threshold_m: 0.3   # GPS到达判定距离阈值 (米)
   gps_fly_timeout_ms: 10000      # GPS飞行超时 (毫秒)
   max_search_radius_m: 35.0     # 搜索阶段最大距离起飞点 (米)
-  # 舵机参数
-  servo_channel_left: 6          # 左舵机通道号
-  servo_channel_right: 7         # 右舵机通道号
-  servo_offset_left_x: 78        # 左舵机X轴偏移 (像素)
-  servo_offset_right_x: -70      # 右舵机X轴偏移 (像素)
-  servo_release_pwm_left: 1200   # 左舵机释放PWM值
-  servo_release_pwm_right: 1700  # 右舵机释放PWM值
+  # SITL 仿真测试：跳过 GPS 等位，用固定 HOME 直接测航点上传握手（正常流程保持 false）
+  simulate_home: false            # true=测试模式，跳过 GPS FIX 等待
+  sim_home_lat: 31.2304           # 测试用 HOME 纬度
+  sim_home_lon: 121.4737          # 测试用 HOME 经度
 
 # --- YOLO 模型配置 ---
 yolo:
   backend: "tensorrt"                # 推理后端: ONNX | TensorRT
-  model_path: "best_7.26.onnx"   # ONNX 模型路径
-  engine_path: "best_cuadc10.10.2.engine"  # TensorRT 引擎路径
-  class_path: "classes1.txt"     # 类别文件路径
   use_gpu: true                  # 是否使用 GPU 推理
-  recon_model_path: "best_detect.onnx"       # 侦察阶段 ONNX 模型路径
-  recon_class_path: "best_detect.txt" # 侦察模型类别文件路径
-
-# --- 航点规划参数 ---
-waypoint:
-  default_altitude: 3         # 默认飞行高度 (米)
-  distance_to_drop_zone: 33    # 起飞点到投弹区距离 (米)
-  distance_to_recon1: 57.0       # 起飞点到侦察点1距离 (米)
-  distance_to_recon2: 59.0       # 起飞点到侦察点2距离 (米)
-  recon_side_distance: 2.6       # 侦察侧向偏移距离 (米)
-  delay_takeoff: 0.1             # 起飞前延时 (秒)
-  delay_drop_point: 0.1          # 投弹点停留延时 (秒)
-  delay_after_drop: 0.1        # 投弹后延时 (秒)
-  delay_return: 0.1             # 返航延时 (秒)
-  delay_recon_main: 1.0          # 主侦察点延时 (秒)
-  delay_recon_secondary: 1.0     # 次侦察点延时 (秒)
-  delay_recon_side: 1.0          # 侧向侦察点延时 (秒)
+  # 第一级：天井检测（两轮比赛共用，单类 bucket）
+  well_model_path: "best_well.onnx"      # 天井 ONNX 模型路径
+  well_engine_path: "best_well.engine"   # 天井 TensorRT 引擎（1280x1280）
+  well_class_path: "best_well.txt"       # 天井类别文件（单行 bucket）
+  # 第二级：图案识别（任务一，12 类）
+  pattern_model_path: "best_detect.onnx"
+  pattern_engine_path: "best_detect.engine"
+  pattern_class_path: "best_detect.txt"
+  # 抽帧：每 N 帧做一次天井识别，防输入>输出导致数据堆积
+  detect_frame_stride: 5
 
 # --- 固定翼（ArduPlane）参数 ---
 fixedwing:
@@ -112,39 +102,43 @@ fixedwing:
   servo_channel: 8           # 投弹舵机通道
   servo_release_pwm: 1995    # 投弹舵机 PWM
   takeoff_pitch_deg: 18.0    # 手抛爬升俯仰角（TAKEOFF param1）
-  takeoff_climb_alt_m: 38.0  # 起飞爬升高度（TAKEOFF z）
+  takeoff_climb_alt_m: 20.0  # 起飞爬升高度（TAKEOFF z）
   drop_altitude: 30.0        # 投弹引导飞越高度 (m)
   entry_extension_distance_m: 80.0 # 入口点=目标沿 Home→目标 方向延长距离 (m)，须 > 投弹提前量
   entry_reach_radius_m: 40.0       # 到达入口点附近后切入返航直线的半径 (m)，须 > 飞控 WP_RADIUS
   drop_fall_time_s: 0.0      # 弹道落体时间；0=按高度算 sqrt(2h/g)
   release_lead_offset_m: 0.0 # 投弹提前量附加偏移 (m)
-  fallback_bearing_offset_deg: -63.3  # 兜底点相对起飞航向的方位角偏移
-  fallback_distance_m: 66.1          # 兜底点相对 HOME 的距离 (m)
+  fallback_start_index: 5    # 兜底航线起点=route 下标（5=巡航6）；识别超时后从该条起飞 AUTO 兜底
   strike_handoff_seq: 8      # 巡航末点 MISSION 序号（切 GUIDED 时机）
-  landing_start_seq: 9       # 投弹后跳转的降落段起始 MISSION 序号
+  landing_start_seq: 10      # 投弹后跳转的降落段起始 MISSION 序号（新航线=seq10 第一个降高点）
   task_type: 1               # 打击目标选择规则：1=任务一(价值最高) 2=任务二(中位数)
+  # 两次任务识别锁定超时（毫秒）
+  toudan_time_out_task1: 30000  # 任务一（图案）识别锁定超时
+  toudan_time_out_task2: 30000  # 任务二（数字/OCR）识别锁定超时
+  # 引导飞越两阶段超时（毫秒）
+  guided_entry_timeout_ms: 60000   # 阶段一：飞向入口点超时
+  guided_release_timeout_ms: 30000 # 阶段二：返航直线释放超时
   # 航线表：每条 = 一个航点；bearing_offset 相对起飞航向、distance 相对 HOME、alt 高度
-  # 下面 19 条 = 7 巡航(40m) + 11 降高(35→1m) + 1 着陆(最后一条自动 NAV_LAND)
+  # 由 2026-10-07 地面站航点文件(10.7航点.waypoints)换算；任务 seq = route下标+2
+  # 17 条 = 7 巡航(20m，第7条=seq8=盘旋点/巡航末点) + 1 目标接近点(20m) + 8 降高(20→12m) + 1 着陆(最后一条自动 NAV_LAND)
   route:
-    - { bearing_offset_deg: 0.000,    distance_m: 112.75, alt_m: 40 }   # 巡航1（恒在起飞正前方）
-    - { bearing_offset_deg: 37.263,   distance_m: 55.00,  alt_m: 40 }   # 巡航2
-    - { bearing_offset_deg: -55.565,  distance_m: 35.47,  alt_m: 40 }   # 巡航3
-    - { bearing_offset_deg: -88.365,  distance_m: 67.40,  alt_m: 40 }   # 巡航4
-    - { bearing_offset_deg: -102.440, distance_m: 123.92, alt_m: 40 }   # 巡航5
-    - { bearing_offset_deg: -82.234,  distance_m: 135.07, alt_m: 40 }   # 巡航6
-    - { bearing_offset_deg: -68.095,  distance_m: 102.47, alt_m: 40 }   # 巡航7 = 巡航末点 → 切 GUIDED
-    - { bearing_offset_deg: -46.107,  distance_m: 80.31,  alt_m: 35 }   # 降高
-    - { bearing_offset_deg: 14.981,   distance_m: 96.00,  alt_m: 35 }
-    - { bearing_offset_deg: 53.782,   distance_m: 69.67,  alt_m: 35 }
-    - { bearing_offset_deg: -65.514,  distance_m: 26.55,  alt_m: 30 }
-    - { bearing_offset_deg: -96.263,  distance_m: 70.94,  alt_m: 25 }
-    - { bearing_offset_deg: -103.394, distance_m: 122.27, alt_m: 20 }
-    - { bearing_offset_deg: -79.509,  distance_m: 121.51, alt_m: 15 }
-    - { bearing_offset_deg: -74.639,  distance_m: 109.66, alt_m: 10 }
-    - { bearing_offset_deg: -69.595,  distance_m: 99.24,  alt_m: 5 }
-    - { bearing_offset_deg: -63.016,  distance_m: 89.49,  alt_m: 2 }
-    - { bearing_offset_deg: -59.276,  distance_m: 85.19,  alt_m: 1 }
-    - { bearing_offset_deg: -53.380,  distance_m: 80.25,  alt_m: 0 }    # 最后一条 = NAV_LAND
+    - { bearing_offset_deg: 0.000,    distance_m: 110.25, alt_m: 20 }   # seq2  巡航1（基准方向 = 起飞正前方）
+    - { bearing_offset_deg: -3.347,   distance_m: 269.27, alt_m: 20 }   # seq3  巡航2
+    - { bearing_offset_deg: 10.841,   distance_m: 261.00, alt_m: 20 }   # seq4  巡航3
+    - { bearing_offset_deg: 17.792,   distance_m: 223.60, alt_m: 20 }   # seq5  巡航4
+    - { bearing_offset_deg: 11.430,   distance_m: 178.15, alt_m: 20 }   # seq6  巡航5
+    - { bearing_offset_deg: -0.400,   distance_m: 192.83, alt_m: 20 }   # seq7  巡航6
+    - { bearing_offset_deg: -1.167,   distance_m: 210.49, alt_m: 20 }   # seq8  巡航7 = 盘旋点/巡航末点 ★（切 GUIDED）
+    - { bearing_offset_deg: -1.271,   distance_m: 217.86, alt_m: 20 }   # seq9  目标接近点（正常流程跳过）
+    - { bearing_offset_deg: -1.263,   distance_m: 225.90, alt_m: 20 }   # seq10 降高1（投弹后从这条跳转）
+    - { bearing_offset_deg: -1.004,   distance_m: 260.84, alt_m: 20 }   # seq11 降高2
+    - { bearing_offset_deg: 1.213,    distance_m: 321.39, alt_m: 20 }   # seq12 降高3
+    - { bearing_offset_deg: 12.349,   distance_m: 314.26, alt_m: 20 }   # seq13 降高4
+    - { bearing_offset_deg: 6.960,    distance_m: 272.76, alt_m: 18 }   # seq14 降高5
+    - { bearing_offset_deg: 3.111,    distance_m: 230.54, alt_m: 17 }   # seq15 降高6
+    - { bearing_offset_deg: 3.235,    distance_m: 179.09, alt_m: 15 }   # seq16 降高7
+    - { bearing_offset_deg: 6.974,    distance_m: 104.26, alt_m: 12 }   # seq17 降高8
+    - { bearing_offset_deg: 68.947,   distance_m: 19.10,  alt_m: 0 }    # seq18 着陆（自动 NAV_LAND，落点在起飞点旁 19m）
 
 # --- RTK 差分定位配置 ---
 rtk:
@@ -169,20 +163,31 @@ tracking:
   max_targets: 3                 # 最多追踪目标数
   max_age_frames: 30             # 簇无更新帧数后删除
 
-# --- 编号 OCR 识别 (PP-OCRv5_mobile_rec + TensorRT) ---
-# 模型下载: hf-mirror.com/PaddlePaddle/PP-OCRv5_mobile_rec_onnx
-#   需要 inference.onnx / inference.yml 两个文件；首次运行自动构建 .engine
+# --- 编号 OCR 识别 (PP-OCRv6 完整管线: det 文本行检测 + ori 方向修正 + rec 识别) ---
+# rec/det/ori 均为 TensorRT；首次运行自动从 ONNX 构建 .engine
 ocr:
   enabled: true                  # OCR 总开关（关掉则完全不加载模型）
   enable_on_recon: true          # 侦察阶段启用识别
   enable_on_bomb: true           # 投弹阶段启用识别
-  onnx_path: "PP-OCRv5_mobile_rec.onnx"        # 模型 ONNX
-  engine_path: "PP-OCRv5_mobile_rec.engine"    # TensorRT 引擎缓存（自动生成）
-  dict_path: "ppocr_keys_v5.txt"               # 字符字典（可选，缺省从 yml 解析）
-  inference_yml_path: "inference.yml"          # PaddleOCR 官方配置（含 character_dict）
+  onnx_path: "PP-OCRv6_medium_rec.onnx"        # 识别模型 ONNX
+  engine_path: "PP-OCRv6_medium_rec.engine"    # 识别引擎缓存（自动生成）
+  dict_path: "ppocr_keys_v6.txt"               # 字符字典（可选，缺省从 yml 解析）
+  inference_yml_path: "PP-OCRv6_medium_rec.yml"  # 识别模型官方配置（含 character_dict）
   digit_only: true               # 只保留数字字符（编号场景）
   use_fp16: true                 # engine 使用 FP16
   rec_max_width: 320             # 输入动态宽度上限
+  # --- 文本行检测 (PP-OCRv6_medium_det / DB) ---
+  use_det: true                  # 启用 det 阶段：先在桶图里定位数字行
+  det_onnx_path: "PP-OCRv6_medium_det.onnx"
+  det_engine_path: "PP-OCRv6_medium_det.engine"
+  det_limit_side: 960            # det 输入长边上限（像素）
+  det_box_thresh: 0.45           # 文本框置信度阈值
+  det_thresh: 0.2                # 二值化阈值
+  det_unclip_ratio: 1.4          # 框外扩比例
+  # --- 方向修正 (PP-LCNet_x1_0_textline_ori) ---
+  use_ori: true                  # 启用 ori 阶段：纠正 180° 倒放
+  ori_onnx_path: "PP-LCNet_x1_0_textline_ori.onnx"
+  ori_engine_path: "PP-LCNet_x1_0_textline_ori.engine"
   min_box_width: 16.0            # 忽略过小的候选框(像素)
   min_box_height: 8.0
   max_boxes_per_cycle: 24        # 每轮最多识别框数（限流）

@@ -1,6 +1,6 @@
 # CUADC_fixedwing
 
-一个基于 C++ 的固定翼无人机侦察与打击项目，集成了 MAVLink 通信、相机采集、目标检测（YOLO）、目标追踪、视觉伺服、RTK 差分定位和任务调度能力。面向 Windows + Visual Studio 环境，适合用于飞控联调、视觉识别投放和航点任务实验。
+一个基于 C++ 的固定翼无人机侦察与打击项目，集成了 MAVLink 通信、相机采集、目标检测（YOLO）、目标追踪、RTK 差分定位和任务调度能力。面向 Windows + Visual Studio 环境，适合用于飞控联调、视觉识别投放和航点任务实验。
 
 ## 功能概览
 
@@ -9,7 +9,7 @@
 - **相机采集**：设备自动枚举（VID/PID + DirectShow）+ 独立采集线程 + 帧分发
 - **目标检测**：支持 TensorRT 引擎推理 或 OpenCV DNN 推理（YOLO）
 - **目标追踪**：GPS 聚类目标关联（GPSTargetClusterer）、像素坐标 → GPS 坐标转换（PixelToGPSConverter）、OpenCV CSRT 追踪
-- **视觉伺服**：基于像素误差的比例速度控制，分阶段对准（水平 → 高度 → 稳定 → 投放）
+- **两段式识别**：先检天井（bucket，1280）→ 再检图案（12 类 YOLO）/ OCR 数字，按价值最高（任务一）或中位数（任务二）选打击目标
 - **任务调度**：多状态状态机（WaitingForInitialization → TakingOff → Mission1InProgress → Mission2InProgress），独立线程运行
 - **曝光控制**：软件 AE，PI 调节亮度，可配置目标亮度 / 曝光限幅 / 更新间隔
 - **RTK 差分定位**：NTRIP 客户端自动连接、RTCM v3 接收、CRC24Q 校验、GPS_RTCM_DATA 注入飞控
@@ -17,9 +17,9 @@
 ## 项目结构
 
 - `main.cpp` — 程序入口，初始化配置、通信、检测器、采集线程和主显示循环
-- `MissionScheduler.*` — 任务调度核心状态机，负责航点任务、视觉对准、投放控制与后处理
+- `MissionScheduler.*` — 任务调度核心状态机，负责航点任务、目标识别、投放控制与后处理
 - `MavlinkProtocolHandler.*` — MAVLink 消息收发、飞行模式切换、航点上传、GPS/IMU 数据缓存
-- `MotionController.*` — 15Hz 控制循环，支持 POSITION / VELOCITY / VISUAL_SERVO 三种模式
+- `MotionController.*` — 15Hz 控制循环，发送 GUIDED 全局位置（GPS）目标点
 - `CaptureThread.*` / `FrameDispatcher.*` — 视频采集与帧分发
 - `TensorRTDetector.*` / `OpenCVDNNDetector.*` — 检测器实现
 - `GPSTargetClusterer.*` — GPS 坐标聚类匹配与稳定目标判定
@@ -43,22 +43,19 @@ main.cpp: io_context → MavlinkProtocolHandler → Serial/TCP/UDP 传输 → �
          MissionScheduler (独立线程) ← MavlinkProtocolHandler
               ↓                           ↓
          MotionController          NtripClient (RTK, 若启用)
-         (速度 / 位置命令)            (RTCM → GPS_RTCM_DATA 注入)
+         (GUIDED 全局位置命令)        (RTCM → GPS_RTCM_DATA 注入)
               ↓
-         MAVLink SET_POSITION / SET_VELOCITY → 飞控
+         MAVLink SET_POSITION_TARGET_GLOBAL_INT → 飞控
 ```
 
 ### 任务调度状态流
 
 ```
 WaitingForInitialization → TakingOff → Mission1InProgress → Mission2InProgress
-     (等待GPS)              (起飞)    (目标识别/对准/投放)   (后处理：聚类目标 → 依次飞至 → RTL)
+     (等待GPS)              (起飞)    (巡航→识别→GUIDED投弹)   (后处理：聚类目标 → 依次飞至 → RTL)
 ```
 
-其中 Mission1InProgress 内部包含四个视觉伺服阶段：
-```
-水平对准 (HORIZONTAL_APPROACH) → 高度调整 (HEIGHT_ADJUSTMENT) → 稳定保持 (STABILIZATION) → 投放 (DROP_COMMAND)
-```
+识别采用两段式：先全图检测天井（bucket，imgsz=1280），再裁天井框做第二级 —— 任务一跑 12 类图案 YOLO，任务二跑 OCR 读两位数，按规则选打击目标后切 GUIDED 飞越投弹。
 
 ## 环境与依赖
 
@@ -134,20 +131,12 @@ WaitingForInitialization → TakingOff → Mission1InProgress → Mission2InProg
 
 | 参数 | 说明 |
 |------|------|
-| `kp` | 比例系数 |
-| `deadzone_x` | 最终死区阈值（像素，X 方向） |
-| `deadzone_y` | 最终死区阈值（像素，Y 方向） |
-| `deadzone_big` | 一级死区阈值（像素） |
-| `max_speed` | 最大速度限制（m/s） |
 | `initial_heading` | 起飞初始航向角（度） |
 | `toudan_time_out` | 投弹超时时间（毫秒） |
 | `manual_observe` | 测试模式：仅检测输出，不发送控制指令 |
 | `gps_arrival_threshold_m` | GPS 到达判定距离阈值（米） |
 | `gps_fly_timeout_ms` | GPS 飞行超时（毫秒） |
 | `max_search_radius_m` | 搜索阶段最大距离（米，相对起飞点） |
-| `servo_channel_left` / `servo_channel_right` | 左右舵机通道号 |
-| `servo_offset_left_x` / `servo_offset_right_x` | 左右舵机 X 轴偏移（像素） |
-| `servo_release_pwm_left` / `servo_release_pwm_right` | 左右舵机释放 PWM 值 |
 
 ### 5. YOLO 模型配置 (`yolo`)
 
@@ -159,22 +148,7 @@ WaitingForInitialization → TakingOff → Mission1InProgress → Mission2InProg
 | `class_path` | 类别文件路径 |
 | `use_gpu` | 是否使用 GPU 推理 |
 
-### 6. 航点规划参数 (`waypoint`)
-
-| 参数 | 说明 |
-|------|------|
-| `default_altitude` | 默认飞行高度（米） |
-| `distance_to_drop_zone` | 起飞点到投弹区距离（米） |
-| `distance_to_recon1` | 起飞点到侦察点1距离（米） |
-| `distance_to_recon2` | 起飞点到侦察点2距离（米） |
-| `recon_side_distance` | 侦察侧向偏移距离（米） |
-| `delay_takeoff` | 起飞前延时（秒） |
-| `delay_drop_point` | 投弹点停留延时（秒） |
-| `delay_after_drop` | 投弹后延时（秒） |
-| `delay_return` | 返航延时（秒） |
-| `delay_recon_main` / `delay_recon_secondary` / `delay_recon_side` | 各侦察点延时（秒） |
-
-### 7. RTK 差分定位 (`rtk`)
+### 6. RTK 差分定位 (`rtk`)
 
 | 参数 | 说明 |
 |------|------|
@@ -190,7 +164,7 @@ WaitingForInitialization → TakingOff → Mission1InProgress → Mission2InProg
 | `fix_timeout_sec` | RTK FIX 超时时间（秒） |
 | `allow_gps_flight` | 超时后是否允许仅用 GPS 飞行 |
 
-### 8. 目标跟踪 / 聚类 (`tracking`)
+### 7. 目标跟踪 / 聚类 (`tracking`)
 
 | 参数 | 说明 |
 |------|------|
@@ -205,5 +179,5 @@ WaitingForInitialization → TakingOff → Mission1InProgress → Mission2InProg
 - `initial_heading`、航点距离、投放超时等参数直接影响任务行为，建议结合场地重新标定
 - 若使用 TensorRT，引擎文件需与 CUDA / TensorRT 版本匹配
 - `config_loader.h` 中的 C++ 默认值与 `config.yaml` 对应，缺失键会回退到默认值
-- 舵机 PWM 值、死区阈值、视觉伺服增益等参数建议在实飞前通过地面测试确定
+- 舵机 PWM 值、投弹提前量等参数建议在实飞前通过地面测试确定
 - 若在新机器上构建，建议优先整理 `.vcxproj` 中的依赖路径与运行时 DLL 部署方式

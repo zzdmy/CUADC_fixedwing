@@ -19,7 +19,11 @@ AppLogger::AppLogger() {
         auto now = std::chrono::system_clock::now();
         std::time_t t = std::chrono::system_clock::to_time_t(now);
         std::tm tm;
+#ifdef _WIN32
         localtime_s(&tm, &t);
+#else
+        localtime_r(&t, &tm);
+#endif
         std::ostringstream oss;
         oss << "logs/drone_" << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S") << ".log";
         auto file_sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(oss.str(), false);

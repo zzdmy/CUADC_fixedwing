@@ -13,11 +13,12 @@
 #include <memory>
 #include "ConfigManager.h"
 #include "PixelToGPSConverter.h"
+
+class YoloV8TensorRT; // 前向声明（任务一第二级图案检测器）
 using namespace cv;
 using namespace std;
 
 bool try_get_latest_image(Mat& latest_image);
-class SerialPortHandler;
 
 // Global time stored as nanoseconds
 static std::atomic<std::chrono::nanoseconds::rep> global_time_ns;
@@ -41,15 +42,15 @@ public:
     void stop();
     MissionState getCurrentState() const;
 
-    // 侦察模型切换：MissionScheduler 请求 → 主线程执行
-    bool isReconModelRequested() const { return switch_to_recon_requested_.load(); }
-    void setReconModelReady(bool v) { recon_model_ready_.store(v); switch_to_recon_requested_.store(false); }
+    // 任务一第二级图案检测器（任务二为空）；主线程创建后注入
+    void setPatternDetector(std::shared_ptr<YoloV8TensorRT> p) { pattern_detector_ = std::move(p); }
 
 private:
     const AppConfig& cfg_;
     double home_lat_ = 0.0;
     double home_lon_ = 0.0;
     double takeoff_heading_ = 0.0;   // 已解析的起飞真北航向（自动读或手动），供上传与兜底点共用
+    int landing_last_seq_ = 0;       // 降落监控终点 seq（正常流程=1+route.size()，兜底流程=route.size()-fallback_start_index）
     std::vector<TargetGPS> target_gps_list_;
     bool data_stream_requested_ = true;
 
@@ -71,9 +72,8 @@ private:
     bool new_frame_available_{ false };
     std::unique_ptr<MotionController> motion_ctrl_;
 
-    // 侦察模型切换标志
-    std::atomic<bool> switch_to_recon_requested_{ false };
-    std::atomic<bool> recon_model_ready_{ false };
+    // 任务一第二级图案检测器（可空；任务二不使用）
+    std::shared_ptr<YoloV8TensorRT> pattern_detector_;
 };
 
 #endif // MISSION_SCHEDULER_H

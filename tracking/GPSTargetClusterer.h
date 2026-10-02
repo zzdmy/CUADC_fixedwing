@@ -18,7 +18,7 @@ public:
     };
 
     // Accept shared camera converter (configured once in main thread)
-    // target_class: class name to cluster (default "toudan")
+    // target_class: 聚类的类别名（默认 "toudan" 旧占位；任务二传 "bucket"=天井）
     // max_targets: max clusters to maintain (0 = use config value)
     GPSTargetClusterer(std::shared_ptr<PixelToGPSConverter> converter,
                        const std::string& target_class = "toudan",

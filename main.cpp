@@ -1,4 +1,5 @@
 //main.cpp
+#ifdef _WIN32
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
@@ -6,11 +7,11 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#endif
 #include "AppLogger.h"
 #include <vector>
 #include <string>
 
-//#include"MavlinkServer.h"//在opencv文件前面引入头文件，避免accessmask不明确
 #include "MavlinkProtocolHandler.h"
 #include "SerialTransport.h"
 #include "TcpTransport.h"
@@ -20,10 +21,17 @@
 #include <mutex>
 #include "FrameDispatcher.h"//帧分发头文件
 #include "CaptureThread.h"//帧捕获头文件
+#ifdef _WIN32
 #include "WinDeviceEnumerator.h"
+using DeviceEnumeratorImpl = WinDeviceEnumerator;
+#else
+#include "LinuxDeviceEnumerator.h"
+using DeviceEnumeratorImpl = LinuxDeviceEnumerator;
+#endif
 #include "TensorRTDetector.h"//tensorrt检测方法头文件
 #include "OpenCVDNNDetector.h"//opencv检测方法头文件
 #include "IDetector.h"//统一检测接口
+#include "yolov8_trt_infer.hpp"//YoloV8TensorRT 类定义（任务一第二级图案检测器）
 
 #include <boost/asio/io_context.hpp>
 #include <chrono>
@@ -42,8 +50,8 @@
 #include "ConfigManager.h"//
 #include "ocr/OcrDigitReader.h"
 #include <fstream>
-
-std::atomic<float>doublefast(1);//定义储存加速的速度的全局变量
+#include <csignal>
+#include <filesystem>
 
 using namespace std;
 using namespace cv;
@@ -118,18 +126,124 @@ void displayThreadFunc(std::stop_token st,
 	}
 	*running_flag = false;
 }
+
+// ===== 机内录像（素材收集；config.record.enable 控制）=====
+// 从 frameDispatcher 取帧写 H.264 MP4（GStreamer x264），与识别/预览共用同一路画面，
+// 不额外占用相机。收到 SIGTERM/SIGINT 时先关闭当前分段再放行进程退出，保住 MP4 索引。
+static volatile std::sig_atomic_t g_termSig = 0;
+static void onTermSignal(int sig) { g_termSig = sig; }
+
+static void recCleanupOld(const std::string& dir, double max_gb, const std::string& curPath) {
+    std::error_code ec;
+    namespace fs = std::filesystem;
+    const uint64_t maxB = static_cast<uint64_t>(max_gb * 1024.0 * 1024.0 * 1024.0);
+    uint64_t total = 0;
+    std::vector<std::pair<fs::file_time_type, fs::path>> files;
+    for (const auto& e : fs::directory_iterator(dir, ec)) {
+        const auto ext = e.path().extension().string();
+        if (ext != ".mp4" && ext != ".avi") continue;
+        total += fs::file_size(e.path(), ec);
+        files.emplace_back(fs::last_write_time(e.path(), ec), e.path());
+    }
+    if (total <= maxB) return;
+    std::sort(files.begin(), files.end());
+    for (auto& [ft, p] : files) {
+        if (total <= maxB) break;
+        if (p.string() == curPath) continue;
+        const uint64_t sz = fs::file_size(p, ec);
+        if (fs::remove(p, ec)) {
+            total -= sz;
+            AppLogger::get().info("[record] 清理旧录像: {}", p.filename().string());
+        }
+    }
+}
+
+void recordThreadFunc(std::stop_token st, RecordConfig rc) {
+    namespace fs = std::filesystem;
+    std::error_code ec;
+    fs::create_directories(rc.dir, ec);
+    AppLogger::get().info("[record] 机内录像线程启动: 目录={} 分段={}s 上限={}GB",
+        rc.dir, rc.segment_sec, rc.max_total_gb);
+
+    auto segStart = std::chrono::steady_clock::now();
+    auto lastWrite = std::chrono::steady_clock::now();
+    uint64_t lastFid = 0;
+    cv::VideoWriter writer;
+    std::string curPath;
+
+    while (!st.stop_requested()) {
+        // 终止信号：先关分段（写 MP4 索引），再按默认行为退出
+        if (g_termSig) {
+            if (writer.isOpened()) {
+                writer.release();
+                AppLogger::get().info("[record] 收到终止信号，当前分段已关闭");
+            }
+            std::signal(g_termSig, SIG_DFL);
+            std::raise(g_termSig);
+        }
+
+        auto fp = frameDispatcher.getFrame();
+        const uint64_t fid = frameDispatcher.getFrameCounter();
+        if (fp && !fp->empty() && fid != lastFid) {
+            lastFid = fid;
+            const auto now = std::chrono::steady_clock::now();
+            if (now - lastWrite >= std::chrono::milliseconds(33)) {   // 限速到 ~30fps
+                lastWrite = now;
+                if (!writer.isOpened() || now - segStart > std::chrono::seconds(rc.segment_sec)) {
+                    if (writer.isOpened()) writer.release();
+                    std::time_t t = std::time(nullptr);
+                    std::tm tm{};
+#ifdef _WIN32
+                    localtime_s(&tm, &t);
+#else
+                    localtime_r(&t, &tm);
+#endif
+                    char base[64];
+                    std::strftime(base, sizeof(base), "flt_%Y-%m-%d_%H-%M-%S", &tm);
+                    curPath = rc.dir + "/" + base + ".mp4";
+                    for (int i = 1; i < 100 && fs::exists(curPath, ec); ++i)
+                        curPath = rc.dir + "/" + base + "_" + std::to_string(i) + ".mp4";
+
+                    const std::string pipe =
+                        "appsrc ! videoconvert ! video/x-raw,format=I420 ! x264enc bitrate=6000 speed-preset=veryfast key-int-max=60 "
+                        "! h264parse ! qtmux ! filesink location=" + curPath;
+                    bool opened = writer.open(pipe, cv::CAP_GSTREAMER, 0, 30, fp->size());
+#ifdef _WIN32
+                    if (!opened)
+                        opened = writer.open(curPath, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), 30, fp->size());
+#endif
+                    if (opened) {
+                        segStart = now;
+                        recCleanupOld(rc.dir, rc.max_total_gb, curPath);
+                        AppLogger::get().info("[record] 新分段: {}", curPath);
+                    } else {
+                        AppLogger::get().error("[record] 分段创建失败: {}", curPath);
+                        std::this_thread::sleep_for(std::chrono::seconds(2));
+                    }
+                }
+                if (writer.isOpened()) writer.write(*fp);
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    if (writer.isOpened()) writer.release();
+    AppLogger::get().info("[record] 机内录像线程退出，当前分段已关闭");
+}
+
 int main(int argc, char** argv)
 {
 	try
 	{
+#ifdef _WIN32
 		SetConsoleOutputCP(CP_UTF8); // 控制台输出使用 UTF-8，避免中文日志乱码
 		SetConsoleCP(CP_UTF8);
+#endif
 		AppConfig config = load_config_from_yaml(); //加载配置文件
 		ConfigManager::getInstance().setConfig(config);//设置配置文件到全局
 		AppLogger::get().info("配置文件加载完成, 通信方式: {}", config.communication.transport);
 		std::vector<std::thread> threadList;//建立线程列
 
-		auto enumerator = std::make_unique<WinDeviceEnumerator>();//创建设备枚举器
+		auto enumerator = std::make_unique<DeviceEnumeratorImpl>();//创建设备枚举器
 
 
 		// 查找摄像头
@@ -258,12 +372,32 @@ int main(int argc, char** argv)
 
 
 
+    // ===== 检测器接线（两段式：先检天井 → 再检图案/数字）=====
+    // 主检测器 = 天井（两轮比赛共用，单类 bucket，imgsz=1280）
+    const std::string well_model_path  = config.yolo.well_model_path;
+    const std::string well_engine_path = config.yolo.well_engine_path;
+    const std::string well_class_path  = config.yolo.well_class_path;
+
+    // 任务一：额外加载图案检测器（12 类，只做第二级裁剪识别，不起独立检测 loop）
+    std::shared_ptr<YoloV8TensorRT> patternDetector;
+    if (config.fixedwing.task_type == 1) {
+        patternDetector = std::make_shared<YoloV8TensorRT>(
+            config.yolo.pattern_engine_path, config.yolo.pattern_class_path);
+        if (!patternDetector->isInitialized()) {
+            AppLogger::get().error("图案检测器加载失败: {}", config.yolo.pattern_engine_path);
+            return -1;
+        }
+        AppLogger::get().info("图案检测器已加载（任务一第二级）: {}", config.yolo.pattern_engine_path);
+        missionScheduler.setPatternDetector(patternDetector);   // 注入任务调度器做第二级识别
+    }
+
     std::unique_ptr<IDetector> detector;
     if (config.yolo.backend=="tensorrt") {
 
-        detector = std::make_unique<TensorRTDetector>(config.yolo.engine_path, config.yolo.class_path);//创建tensorrt检测器
+        detector = std::make_unique<TensorRTDetector>(
+            well_engine_path, well_class_path, config.yolo.detect_frame_stride);//创建天井tensorrt检测器（含抽帧）
     } else{
-        detector = std::make_unique<OpenCVDNNDetector>(config.yolo.model_path, config.yolo.class_path, config.yolo.use_gpu);//创建opencv检测器
+        detector = std::make_unique<OpenCVDNNDetector>(well_model_path, well_class_path, config.yolo.use_gpu);//创建opencv检测器
     }
 
     if (!detector || !detector->isInitialized()) {
@@ -275,17 +409,34 @@ int main(int argc, char** argv)
 
     // 启动检测线程
     detector->startDetectionLoop(actualWidth, actualHeight);
-    AppLogger::get().info("YOLO检测线程已启动, 后端: {}, 模型: {}", config.yolo.backend, config.yolo.model_path);
+    AppLogger::get().info("天井检测线程已启动, 后端: {}, 引擎: {}, 抽帧: 每{}帧",
+        config.yolo.backend, well_engine_path, config.yolo.detect_frame_stride);
 
 	// 启动显示线程
 	auto display_running = std::make_shared<std::atomic<bool>>(false);
 	auto shared_status = std::make_shared<SharedStatus>();
-	std::jthread displayThread(displayThreadFunc, mavlink_handler, display_running, shared_status);
-	AppLogger::get().info("显示线程已启动");
+	std::jthread displayThread;
+	if (config.control.enable_display) {
+		displayThread = std::jthread(displayThreadFunc, mavlink_handler, display_running, shared_status);
+		AppLogger::get().info("显示线程已启动");
+	} else {
+		AppLogger::get().info("显示线程已禁用（enable_display=false，机载无屏模式）");
+	}
+
+	// ===== 启动机内录像（素材收集；比赛时把 config 的 record.enable 设为 false）=====
+	std::jthread recordThread;
+	if (config.record.enable) {
+		std::signal(SIGTERM, onTermSignal);
+		std::signal(SIGINT, onTermSignal);
+		recordThread = std::jthread(recordThreadFunc, config.record);
+		AppLogger::get().info("机内录像已启用: 目录={} 分段={}s", config.record.dir, config.record.segment_sec);
+	} else {
+		AppLogger::get().info("机内录像未启用（record.enable=false）");
+	}
 
 	// ===== 启动编号 OCR 识别（PP-OCRv5_mobile_rec + TensorRT，按需触发）=====
 	std::unique_ptr<ocr::OcrDigitReader> ocrReader;
-	if (config.ocr.enabled) {
+	if (config.ocr.enabled && config.fixedwing.task_type == 2) {
 		// 前置检查：缺文件时给出可执行的提示，避免 TensorRT 抛出难懂的错
 		auto fileOk = [](const std::string& p) {
 			std::ifstream f(p, std::ios::binary);
@@ -310,15 +461,31 @@ int main(int argc, char** argv)
 			AppLogger::get().info("编号 OCR 首次运行，将从 ONNX 构建 TensorRT 引擎（实测约 10~15 分钟，仅一次）...");
 		}
 
-		ocr::PaddleRecConfig recCfg;
-		recCfg.onnxPath = config.ocr.onnx_path;
-		recCfg.enginePath = config.ocr.engine_path;
-		recCfg.dictPath = config.ocr.dict_path;
-		recCfg.inferenceYmlPath = config.ocr.inference_yml_path;
-		recCfg.recMaxWidth = config.ocr.rec_max_width;
-		recCfg.recOptWidth = config.ocr.rec_max_width;
-		recCfg.useFp16 = config.ocr.use_fp16;
-		recCfg.digitOnly = config.ocr.digit_only;
+		ocr::OcrPipelineConfig pipelineCfg;
+		// --- rec（PP-OCRv6_medium_rec）---
+		pipelineCfg.rec.onnxPath = config.ocr.onnx_path;
+		pipelineCfg.rec.enginePath = config.ocr.engine_path;
+		pipelineCfg.rec.dictPath = config.ocr.dict_path;
+		pipelineCfg.rec.inferenceYmlPath = config.ocr.inference_yml_path;
+		pipelineCfg.rec.recMaxWidth = config.ocr.rec_max_width;
+		pipelineCfg.rec.recOptWidth = config.ocr.rec_max_width;
+		pipelineCfg.rec.useFp16 = config.ocr.use_fp16;
+		pipelineCfg.rec.digitOnly = config.ocr.digit_only;
+		// --- det（PP-OCRv6_medium_det / DB）---
+		pipelineCfg.useDet = config.ocr.use_det;
+		pipelineCfg.det.onnxPath = config.ocr.det_onnx_path;
+		pipelineCfg.det.enginePath = config.ocr.det_engine_path;
+		pipelineCfg.det.limitSide = config.ocr.det_limit_side;
+		pipelineCfg.det.boxThresh = config.ocr.det_box_thresh;
+		pipelineCfg.det.thresh = config.ocr.det_thresh;
+		pipelineCfg.det.unclipRatio = config.ocr.det_unclip_ratio;
+		pipelineCfg.det.useFp16 = config.ocr.use_fp16;
+		// --- ori（PP-LCNet_x1_0_textline_ori）---
+		pipelineCfg.useOri = config.ocr.use_ori;
+		pipelineCfg.ori.onnxPath = config.ocr.ori_onnx_path;
+		pipelineCfg.ori.enginePath = config.ocr.ori_engine_path;
+		pipelineCfg.ori.useFp16 = config.ocr.use_fp16;
+		pipelineCfg.cropPadding = 0.0f; // det 框已外扩，管线内不再额外扩
 
 		ocr::OcrConfig ocrCfg;
 		ocrCfg.enabled = true;
@@ -334,8 +501,12 @@ int main(int argc, char** argv)
 		// 触发场景：按任务阶段决定何时开启识别
 		if (config.ocr.enable_on_bomb)  ocrCfg.triggers.push_back("bomb");
 		if (config.ocr.enable_on_recon) ocrCfg.triggers.push_back("recon");
+		// 任务二：只对天井类(bucket, class_id=0)做 OCR（天井单类模型的 class_id=0）
+		if (config.fixedwing.task_type == 2) {
+			ocrCfg.keepClassIds = { 0 };
+		}
 
-		ocrReader = std::make_unique<ocr::OcrDigitReader>(ocrCfg, recCfg);
+		ocrReader = std::make_unique<ocr::OcrDigitReader>(ocrCfg, pipelineCfg);
 		if (ocrReader->isReady()) {
 			ocr::setGlobalReader(ocrReader.get());   // 注册全局读取器，供 MissionScheduler 查编号
 			ocrReader->start();
@@ -351,23 +522,7 @@ int main(int argc, char** argv)
 	}
 
 	while (true) {//主线程：调度与监控
-		// 检查侦察模型切换请求
-		if (missionScheduler.isReconModelRequested()) {
-			AppLogger::get().info("主线程：切换至侦察模型...");
-			detector->stop();
-			detector = std::make_unique<OpenCVDNNDetector>(
-				config.yolo.recon_model_path, config.yolo.recon_class_path, config.yolo.use_gpu);
-			if (detector->isInitialized()) {
-				detector->startDetectionLoop(actualWidth, actualHeight);
-				missionScheduler.setReconModelReady(true);
-				AppLogger::get().info("主线程：侦察模型已就绪");
-			} else {
-				missionScheduler.setReconModelReady(false);
-				AppLogger::get().error("主线程：侦察模型加载失败");
-			}
-		}
-
-		// ===== OCR 按需触发：仅在投弹阶段开启识别（固定翼侦察复用 YOLO 切换，无独立 Mission2） =====
+		// ===== OCR 按需触发：仅在投弹阶段开启识别 =====
 		if (ocrReader) {
 			const char* ocr_phase = "init";
 			switch (missionScheduler.getCurrentState()) {
@@ -432,13 +587,14 @@ int main(int argc, char** argv)
 						}
 					} else if (ap == MAV_AUTOPILOT_ARDUPILOTMEGA) {
 						switch (fm.custom_mode) {
-						case 0: s += "Stabilize"; break;
-						case 1: s += "Acro"; break;
-						case 2: s += "AltHold"; break;
-						case 3: s += "Auto"; break;
-						case 4: s += "Guided"; break;
-						case 5: s += "Loiter"; break;
-						case 6: s += "RTL"; break;
+						case 0: s += "Manual"; break;
+						case 3: s += "Stabilize"; break;
+						case 6: s += "FBWA"; break;
+						case 8: s += "Cruise"; break;
+						case 10: s += "Auto"; break;
+						case 11: s += "RTL"; break;
+						case 12: s += "Loiter"; break;
+						case 15: s += "Guided"; break;
 						default: s += "M" + std::to_string(fm.custom_mode); break;
 						}
 					} else {

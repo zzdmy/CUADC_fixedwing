@@ -10,94 +10,9 @@
 
 namespace
 {
-    // PX4: custom_mode 位域（常用布局）
-    // 参考：PX4 mavlink 模式约定（custom_mode = union），此处按常见实现解析：main_mode/sub_mode
-    struct px4_custom_mode_t
-    {
-        uint32_t reserved : 16;
-        uint32_t main_mode : 8;
-        uint32_t sub_mode : 8;
-    };
-
-    static inline px4_custom_mode_t px4_decode_custom_mode(uint32_t custom_mode)
-    {
-        px4_custom_mode_t m{};
-        // little-endian 直接拆（与 PX4 常见实现一致）
-        m.reserved = (custom_mode & 0xFFFFu);
-        m.main_mode = (custom_mode >> 16) & 0xFFu;
-        m.sub_mode = (custom_mode >> 24) & 0xFFu;
-        return m;
-    }
-
-    static inline std::string px4_mode_to_cn(uint32_t custom_mode)
-    {
-        // main/sub 模式值：不同 PX4 分支可能略有差异，这里覆盖常用项
-        // main_mode 常见：1=MANUAL,2=ALTCTL,3=POSCTL,4=AUTO,5=ACRO,6=OFFBOARD,7=STABILIZED,8=RATTITUDE
-        // sub_mode 常见：AUTO 下 1=READY,2=TAKEOFF,3=LOITER,4=MISSION,5=RTL,6=LAND,7=RTGS
-        const auto m = px4_decode_custom_mode(custom_mode);
-
-        switch (m.main_mode)
-        {
-        case 1: return "手动（MANUAL）";
-        case 2: return "高度控制（ALTCTL）";
-        case 3: return "位置控制（POSCTL）";
-        case 5: return "特技（ACRO）";
-        case 6: return "外部控制（OFFBOARD）";
-        case 7: return "自稳（STABILIZED）";
-        case 8: return "RATTITUDE（半自稳）";
-        case 4:
-            switch (m.sub_mode)
-            {
-            case 1: return "自动：准备（AUTO/READY）";
-            case 2: return "自动：起飞（AUTO/TAKEOFF）";
-            case 3: return "自动：悬停（AUTO/LOITER）";
-            case 4: return "自动：任务（AUTO/MISSION）";
-            case 5: return "自动：返航（AUTO/RTL）";
-            case 6: return "自动：降落（AUTO/LAND）";
-            case 7: return "自动：返场（AUTO/RTGS）";
-            default: return "自动（AUTO，子模式未知）";
-            }
-        default:
-        {
-            std::ostringstream oss;
-            oss << "PX4模式未知(main=" << (int)m.main_mode << ", sub=" << (int)m.sub_mode
-                << ", custom=0x" << std::hex << custom_mode << std::dec << ")";
-            return oss.str();
-        }
-        }
-    }
-
     // ArduPilot：custom_mode = 模式编号（依赖 vehicle type）
     static inline std::string ardupilot_mode_to_cn(uint8_t vehicle_type, uint32_t custom_mode)
     {
-        // 这里只先给 Copter 常用模式；Plane/Rover 可继续补
-        // ArduCopter 常见：0 Stabilize, 1 Acro, 2 AltHold, 3 Auto, 4 Guided, 5 Loiter, 6 RTL, 7 Circle, 9 Land, 11 Drift, 13 Sport, 14 Flip, 15 AutoTune, 16 PosHold, 17 Brake, 18 Throw, 19 Avoid_ADSB, 20 Guided_NoGPS, 21 Smart_RTL, 22 FlowHold, 23 Follow, 24 ZigZag, 25 SystemID, 26 AutoRotate
-        if (vehicle_type == MAV_TYPE_QUADROTOR || vehicle_type == MAV_TYPE_HEXAROTOR || vehicle_type == MAV_TYPE_OCTOROTOR)
-        {
-            switch (custom_mode)
-            {
-            case 0: return "自稳（Stabilize）";
-            case 1: return "特技（Acro）";
-            case 2: return "定高（AltHold）";
-            case 3: return "自动任务（Auto）";
-            case 4: return "引导（Guided）";
-            case 5: return "悬停（Loiter）";
-            case 6: return "返航（RTL）";
-            case 7: return "绕圈（Circle）";
-            case 9: return "降落（Land）";
-            case 16: return "位置保持（PosHold）";
-            case 17: return "刹车（Brake）";
-            case 20: return "引导-无GPS（Guided_NoGPS）";
-            case 21: return "智能返航（Smart_RTL）";
-            default:
-            {
-                std::ostringstream oss;
-                oss << "ArduCopter模式未知(" << custom_mode << ")";
-                return oss.str();
-            }
-            }
-        }
-
         // 固定翼（示例补几个常用）
         if (vehicle_type == MAV_TYPE_FIXED_WING)
         {
@@ -179,9 +94,6 @@ const char* MavlinkProtocolHandler::gpsFixTypeToString(uint8_t fix_type) {
 }
 
 std::string MavlinkProtocolHandler::flightModeToString(uint8_t autopilot, uint8_t type, uint32_t custom_mode) {
-    const bool has_custom = true; // 调用者确保有自定义模式
-    if (!has_custom) return "未启用自定义模式";
-    if (autopilot == MAV_AUTOPILOT_PX4) return px4_mode_to_cn(custom_mode);
     if (autopilot == MAV_AUTOPILOT_ARDUPILOTMEGA) return ardupilot_mode_to_cn(type, custom_mode);
     return "未知飞控模式";
 }
@@ -306,10 +218,6 @@ void MavlinkProtocolHandler::parse_mavlink_message(uint8_t chan, const uint8_t* 
                 if (!has_custom)
                 {
                     mode_cn = "未启用自定义模式（CUSTOM_MODE_DISABLED）";
-                }
-                else if (hb.autopilot == MAV_AUTOPILOT_PX4)
-                {
-                    mode_cn = px4_mode_to_cn(hb.custom_mode);
                 }
                 else if (hb.autopilot == MAV_AUTOPILOT_ARDUPILOTMEGA)
                 {
@@ -554,56 +462,6 @@ bool MavlinkProtocolHandler::setMissionCurrent(uint16_t seq) {
     return messageQueue.push(cmd);
 }
 
-//
-void MavlinkProtocolHandler::sendGuidedPositionGPS(double lat_deg, double lon_deg, float alt_amsl, float yaw_deg) {
-    int32_t lat_e7 = static_cast<int32_t>(lat_deg * 1e7);
-    int32_t lon_e7 = static_cast<int32_t>(lon_deg * 1e7);
-    float yaw_rad = yaw_deg * M_PI / 180.0f;
-
-    uint16_t type_mask = POSITION_TARGET_TYPEMASK_VX_IGNORE |
-        POSITION_TARGET_TYPEMASK_VY_IGNORE |
-        POSITION_TARGET_TYPEMASK_VZ_IGNORE |
-        POSITION_TARGET_TYPEMASK_AX_IGNORE |
-        POSITION_TARGET_TYPEMASK_AY_IGNORE |
-        POSITION_TARGET_TYPEMASK_AZ_IGNORE |
-        POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE;
-
-    mavlink_message_t msg;
-    mavlink_msg_set_position_target_global_int_pack(
-        system_id_, component_id_, &msg,
-        0, target_system_, target_component_,
-        MAV_FRAME_GLOBAL_TERRAIN_ALT_INT,
-        type_mask,
-        lat_e7, lon_e7, alt_amsl * 1000, // alt in mm!
-        0, 0, 0, 0, 0, 0,
-        yaw_rad, 0
-    );
-    messageQueue.push(msg);
-}
-
-void MavlinkProtocolHandler::sendGuidedVelocity(float vx, float vy, float vz, float yaw_rate) {
-    uint16_t type_mask = POSITION_TARGET_TYPEMASK_X_IGNORE |
-        POSITION_TARGET_TYPEMASK_Y_IGNORE |
-        POSITION_TARGET_TYPEMASK_Z_IGNORE |
-        POSITION_TARGET_TYPEMASK_AX_IGNORE |
-        POSITION_TARGET_TYPEMASK_AY_IGNORE |
-        POSITION_TARGET_TYPEMASK_AZ_IGNORE |
-        POSITION_TARGET_TYPEMASK_YAW_IGNORE;
-
-    mavlink_message_t msg;
-    mavlink_msg_set_position_target_local_ned_pack(
-        system_id_, component_id_, &msg,
-        0, target_system_, target_component_,
-        MAV_FRAME_BODY_NED,
-        type_mask,
-        0, 0, 0,
-        vx, vy, vz,
-        0, 0, 0,
-        0, yaw_rate
-    );
-    messageQueue.push(msg);
-}
-
 void MavlinkProtocolHandler::sendServoPWM(uint8_t servo_n, uint16_t pwm_value) {
     mavlink_message_t msg;
     mavlink_msg_command_long_pack(
@@ -618,68 +476,10 @@ void MavlinkProtocolHandler::sendServoPWM(uint8_t servo_n, uint16_t pwm_value) {
 	AppLogger::get().info("发送舵机PWM命令: 舵机编号={}, PWM值={}", (int)servo_n, pwm_value);
     messageQueue.push(msg);
 }
-void MavlinkProtocolHandler::setup_guided_velocity(mavlink_message_t& msg, float vx, float vy, float vz, float toyaw_rate) {
-    uint32_t time_boot_ms = 0; // 时间戳（如果不使用，可以设置为 0）
-    // 修改类型掩码确保所有不需要的字段被正确忽略
-    uint16_t type_mask = (POSITION_TARGET_TYPEMASK_X_IGNORE |
-        POSITION_TARGET_TYPEMASK_Y_IGNORE |
-        POSITION_TARGET_TYPEMASK_Z_IGNORE |
-        POSITION_TARGET_TYPEMASK_AX_IGNORE |
-        POSITION_TARGET_TYPEMASK_AY_IGNORE |
-        POSITION_TARGET_TYPEMASK_AZ_IGNORE |
-        POSITION_TARGET_TYPEMASK_YAW_IGNORE);
-
-    // 设置目标速度
-    mavlink_msg_set_position_target_local_ned_pack(
-        system_id_,          // 本机系统 ID
-        component_id_,       // 本机组件 ID
-        &msg,               // 输出的 MAVLink 消息
-        time_boot_ms,       // 时间戳
-        target_system_,      // 目标系统 ID
-        target_component_,   // 目标组件 ID
-        MAV_FRAME_BODY_NED,   // 坐标系（局部坐标系）
-        type_mask,          // 类型掩码
-        0, 0, 0,            // 目标位置（不使用）
-        vx, vy, vz,         // 目标速度（X, Y, Z）
-        0, 0, 0,            // 目标加速度（不使用）
-        0, toyaw_rate         // 目标偏航角和偏航角速度
-    );
-}
-
-/**
- * @brief 构造设置目标位置的 MAVLink 消息（局部坐标系）
- * @param msg 输出的 MAVLink 消息
- * @param target_system 目标系统的 ID
- * @param target_component 目标组件的 ID
- * @param x 目标位置的 X 坐标（单位：米）
- * @param y 目标位置的 Y 坐标（单位：米）
- * @param z 目标位置的 Z 坐标（单位：米）
- * @param yaw 目标偏航角（单位：弧度）
- */
-void MavlinkProtocolHandler::setup_guided_position_local(mavlink_message_t& msg, float x, float y, float z, float yaw) {
-    uint32_t time_boot_ms = 0; // 时间戳（如果不使用，可以设置为 0）
-    uint16_t type_mask = 0;    // 类型掩码（0 表示使用所有字段）
-
-    // 设置目标位置
-    mavlink_msg_set_position_target_local_ned_pack(
-        system_id_,          // 本机系统 ID
-        component_id_,       // 本机组件 ID
-        &msg,               // 输出的 MAVLink 消息
-        time_boot_ms,       // 时间戳
-        target_system_,      // 目标系统 ID
-        target_component_,   // 目标组件 ID
-        MAV_FRAME_LOCAL_NED, // 坐标系（局部坐标系）
-        type_mask,          // 类型掩码
-        x, y, z,            // 目标位置（X, Y, Z）
-        0, 0, 0,            // 目标速度（不使用）
-        0, 0, 0,            // 目标加速度（不使用）
-        yaw, 0              // 目标偏航角和偏航角速度
-    );
-}
 void MavlinkProtocolHandler::setup_guided_position_gps(mavlink_message_t& msg, double  lat_deg, double  lon_deg, float  alt_amsl, float yaw) {
     uint32_t time_boot_ms = 0; // 可选：使用实际时间戳
 
-    // 设置类型掩码：只使用位置（lat, lon, alt），忽略速度、加速度，保持 Yaw 不变
+    // 设置类型掩码：只使用位置（lat, lon, alt），忽略速度、加速度与 yaw_rate；yaw 取飞控当前姿态航向
     uint16_t type_mask = (POSITION_TARGET_TYPEMASK_VX_IGNORE |
         POSITION_TARGET_TYPEMASK_VY_IGNORE |
         POSITION_TARGET_TYPEMASK_VZ_IGNORE |
@@ -687,12 +487,16 @@ void MavlinkProtocolHandler::setup_guided_position_gps(mavlink_message_t& msg, d
         POSITION_TARGET_TYPEMASK_AY_IGNORE |
         POSITION_TARGET_TYPEMASK_AZ_IGNORE |
         POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE);
-    float inyaw = cfg_.control.initial_heading;
     //关键：转换为 degE7（int32_t）
     int32_t lat_e7 = static_cast<int32_t>(lat_deg * 1e7);
     int32_t lon_e7 = static_cast<int32_t>(lon_deg * 1e7);
 
-	yaw = inyaw * M_PI / 180.0f;// 直接使用配置的初始偏航角，转换为弧度强制传递为初始偏航角，保持当前偏航不变
+    // 读取飞控当前姿态的 yaw（弧度），保持机头当前航向，不再硬编码 initial_heading
+    float target_yaw_rad = static_cast<float>(yaw * M_PI / 180.0);  // 兜底：调用方传入的 yaw（度）
+    mavlink_attitude_t att;
+    if (try_get_imu_data(att)) {
+        target_yaw_rad = att.yaw;  // 优先用飞控姿态 yaw（弧度）
+    }
     // 使用 RELATIVE_ALT 坐标系（相对于起飞点高度，不依赖地形数据）
     mavlink_msg_set_position_target_global_int_pack(
         system_id_,
@@ -708,36 +512,7 @@ void MavlinkProtocolHandler::setup_guided_position_gps(mavlink_message_t& msg, d
         alt_amsl,                  // 高度转为米
         0, 0, 0,                     // vx, vy, vz (ignored)
         0, 0, 0,                     // ax, ay, az (ignored)
-        yaw, 0                         // yaw, yaw_rate (ignored → 保持当前偏航)
-    );
-}
-// 
-void MavlinkProtocolHandler::setup_guided_position_body(mavlink_message_t& msg, float x, float y, float z, float yaw) {
-    uint32_t time_boot_ms = 0;
-    uint16_t type_mask = 0;
-    type_mask |= POSITION_TARGET_TYPEMASK_VX_IGNORE;     // 忽略 x 速度
-    type_mask |= POSITION_TARGET_TYPEMASK_VY_IGNORE;     // 忽略 y 速度  
-    type_mask |= POSITION_TARGET_TYPEMASK_VZ_IGNORE;     // 忽略 z 速度
-    type_mask |= POSITION_TARGET_TYPEMASK_AX_IGNORE;     // 忽略 x 加速度
-    type_mask |= POSITION_TARGET_TYPEMASK_AY_IGNORE;     // 忽略 y 加速度
-    type_mask |= POSITION_TARGET_TYPEMASK_AZ_IGNORE;     // 忽略 z 加速度
-    //type_mask |= POSITION_TARGET_TYPEMASK_FORCE_SET;     // 使用加速度而不是力（或者设置为0忽略力）
-    //type_mask |= POSITION_TARGET_TYPEMASK_YAW_IGNORE;    // 忽略偏航角
-    type_mask |= POSITION_TARGET_TYPEMASK_YAW_RATE_IGNORE; // 忽略偏航率
-    yaw = yaw * M_PI / 180.0f;
-    mavlink_msg_set_position_target_local_ned_pack(
-        system_id_,
-        component_id_,
-        &msg,
-        time_boot_ms,
-        target_system_,
-        target_component_,
-        MAV_FRAME_BODY_NED,  // 使用机体坐标系
-        type_mask,
-        x, y, z,
-        0, 0, 0,
-        0, 0, 0,
-        0, 0
+        target_yaw_rad, 0                         // yaw（当前姿态航向）, yaw_rate（ignored）
     );
 }
 // ===== 获取状态 =====
@@ -883,6 +658,12 @@ bool MavlinkProtocolHandler::try_get_heartbeat_info(uint8_t& autopilot, uint8_t&
     return true;
 }
 
+bool MavlinkProtocolHandler::is_armed() const {
+    std::lock_guard<std::mutex> lock(flight_mode_mutex_);
+    if (!latest_flight_mode_.has_value()) return false;
+    return (latest_flight_mode_->base_mode & MAV_MODE_FLAG_SAFETY_ARMED) != 0;
+}
+
 // ==================== 航点与导航方法 ====================
 
 void MavlinkProtocolHandler::requestMessageInterval(uint16_t msg_id, float hz) {
@@ -1020,10 +801,67 @@ std::vector<mavlink_mission_item_t> MavlinkProtocolHandler::buildMissionWaypoint
 bool MavlinkProtocolHandler::uploadMissionWaypoints(
     double initial_lat, double initial_lon, double takeoff_heading
 ) {
-    std::vector<mavlink_mission_item_t> waypoints = buildMissionWaypoints(
-        initial_lat, initial_lon, takeoff_heading
-    );
+    return uploadMissionItems(buildMissionWaypoints(initial_lat, initial_lon, takeoff_heading));
+}
 
+bool MavlinkProtocolHandler::uploadFallbackMission(
+    double initial_lat, double initial_lon, double takeoff_heading
+) {
+    return uploadMissionItems(buildFallbackMissionWaypoints(initial_lat, initial_lon, takeoff_heading));
+}
+
+std::vector<mavlink_mission_item_t> MavlinkProtocolHandler::buildFallbackMissionWaypoints(
+    double takeoff_landing_lat,
+    double takeoff_landing_lon,
+    double takeoff_heading
+) {
+    std::vector<mavlink_mission_item_t> waypoints;
+    const GeographicLib::Geodesic& geod = GeographicLib::Geodesic::WGS84();
+
+    auto base = [&]() {
+        mavlink_mission_item_t it{};
+        it.target_system = target_system_;
+        it.target_component = target_component_;
+        it.frame = MAV_FRAME_GLOBAL_RELATIVE_ALT_INT;
+        it.autocontinue = true;
+        return it;
+    };
+
+    // 兜底航线：route[fallback_start_index]（巡航6）起到尾；巡航7 之后紧跟 DO_SET_SERVO 投弹
+    const auto& route = cfg_.fixedwing.route;
+    int start = cfg_.fixedwing.fallback_start_index;
+    if (start < 0) start = 0;
+    if (start >= static_cast<int>(route.size())) start = static_cast<int>(route.size()) - 1;
+
+    uint16_t seq = 0;
+    for (int i = start; i < static_cast<int>(route.size()); ++i) {
+        const auto& r = route[i];
+        double lat, lon;
+        geod.Direct(takeoff_landing_lat, takeoff_landing_lon,
+                    takeoff_heading + r.bearing_offset_deg, r.distance_m, lat, lon);
+        mavlink_mission_item_t item = base();
+        item.seq = seq++;
+        item.command = (i == static_cast<int>(route.size()) - 1) ? MAV_CMD_NAV_LAND : MAV_CMD_NAV_WAYPOINT;
+        item.x = lat;
+        item.y = lon;
+        item.z = static_cast<float>(r.alt_m);
+        waypoints.push_back(item);
+
+        // 巡航7（fallback_start_index+1）之后紧跟一条 DO_SET_SERVO 投弹
+        if (i == start + 1) {
+            mavlink_mission_item_t servo = base();
+            servo.seq = seq++;
+            servo.command = MAV_CMD_DO_SET_SERVO;
+            servo.param1 = static_cast<float>(cfg_.fixedwing.servo_channel);
+            servo.param2 = static_cast<float>(cfg_.fixedwing.servo_release_pwm);
+            waypoints.push_back(servo);
+        }
+    }
+
+    return waypoints;
+}
+
+bool MavlinkProtocolHandler::uploadMissionItems(const std::vector<mavlink_mission_item_t>& waypoints) {
     // 1. 发送 MISSION_COUNT
     mavlink_message_t msg;
     mavlink_msg_mission_count_pack(
@@ -1058,7 +896,8 @@ bool MavlinkProtocolHandler::uploadMissionWaypoints(
                         request_received = true;
                         break;
                     } else {
-                        AppLogger::get().debug("飞控请求序号 {}，期望 {}，跳过", request.seq, expected_seq);
+                        uint16_t req_seq = request.seq;  // 拷贝局部变量，避免引用未对齐 packed 字段
+                        AppLogger::get().debug("飞控请求序号 {}，期望 {}，跳过", req_seq, expected_seq);
                     }
                 }
             }
@@ -1081,7 +920,8 @@ bool MavlinkProtocolHandler::uploadMissionWaypoints(
 
         mavlink_msg_mission_item_encode(system_id_, component_id_, &msg, &waypoints[expected_seq]);
         sendMessage(msg);
-        AppLogger::get().info("发送航点 seq={} (cmd={})", expected_seq, waypoints[expected_seq].command);
+        uint16_t cmd_id = waypoints[expected_seq].command;  // 拷贝局部变量，避免引用未对齐 packed 字段
+        AppLogger::get().info("发送航点 seq={} (cmd={})", expected_seq, cmd_id);
         std::this_thread::sleep_for(std::chrono::milliseconds(SLEEP_BETWEEN_SEND_MS));
         expected_seq++;
     }

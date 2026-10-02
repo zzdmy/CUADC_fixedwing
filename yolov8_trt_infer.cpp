@@ -3,6 +3,8 @@
 
 #include <fstream>
 #include <algorithm>
+#include <sstream>
+#include <iomanip>
 #include "AppLogger.h"
 
 #include "realtime_pipeline.h"
@@ -13,9 +15,11 @@ void Logger::log(nvinfer1::ILogger::Severity severity, const char* msg) noexcept
     }
 }
 using namespace std;
-void YoloV8TensorRT::detectionLoop(int actualWidth, int actualHeight, std::stop_token st) {
+void YoloV8TensorRT::detectionLoop(int actualWidth, int actualHeight, int frame_stride, std::stop_token st) {
     init_pipeline();
-    uint64_t last_frame_id = 0; // 局部变量，线程安全
+    if (frame_stride < 1) frame_stride = 1;
+    uint64_t last_frame_id = 0;       // 上一帧编号（去重）
+    uint64_t last_processed_id = 0;   // 上次推理的帧编号（抽帧）
 
     thread_local std::mt19937 gen{ std::random_device{}() };//创建一个随机数生成器
     std::uniform_int_distribution<int> dis(100, 255);//随机数生成器
@@ -27,9 +31,33 @@ void YoloV8TensorRT::detectionLoop(int actualWidth, int actualHeight, std::stop_
             uint64_t current_frame_id = frameDispatcher.getFrameCounter();//获取帧编号
             if (current_frame_id > last_frame_id) {
                 last_frame_id = current_frame_id;
+                // 抽帧：每 frame_stride 帧推理一次，防输入>输出导致数据堆积
+                if (current_frame_id - last_processed_id < static_cast<uint64_t>(frame_stride)) {
+                    continue;   // 跳过本帧，仅推进帧引用
+                }
+                last_processed_id = current_frame_id;
                 const cv::Mat& frame = *frame_ptr; // 无需 clone
 
                 auto detections = infer(frame, actualWidth, actualHeight);//推理
+
+                // ===== 识别输出日志（限速 ≥400ms 一条）：检出明细，供飞行复盘 =====
+                if (!detections.empty()) {
+                    static auto last_det_log = std::chrono::steady_clock::time_point{};
+                    auto now_log = std::chrono::steady_clock::now();
+                    if (now_log - last_det_log >= std::chrono::milliseconds(400)) {
+                        last_det_log = now_log;
+                        std::ostringstream oss;
+                        for (size_t i = 0; i < detections.size() && i < 8; ++i) {
+                            const auto& d = detections[i];
+                            oss << " " << (d.className.empty() ? "?" : d.className)
+                                << " " << std::fixed << std::setprecision(2) << d.confidence
+                                << "@(" << d.box.x << "," << d.box.y << ","
+                                << d.box.width << "x" << d.box.height << ")";
+                        }
+                        AppLogger::get().info("[检测] 帧{} 检出{}个:{}",
+                            current_frame_id, detections.size(), oss.str());
+                    }
+                }
 
                 std::vector<yoloout> output;
                 output.reserve(detections.size());
@@ -118,11 +146,19 @@ bool YoloV8TensorRT::loadEngine(const std::string& file_path, const std::string&
         return false;
     }
 
-    // 设置输入形状
-    nvinfer1::Dims input_dims{ 4, {YoloConfig::BATCH_SIZE, YoloConfig::CHANNELS, YoloConfig::INPUT_H, YoloConfig::INPUT_W} };
+    // 从引擎读取输入尺寸（静态引擎固定形状；天井 1280x1280、图案 640x640 均自适应）
+    {
+        nvinfer1::Dims engine_in = m_engine->getTensorShape(YoloConfig::INPUT_NAME_T);
+        if (engine_in.nbDims >= 4) {
+            m_input_h = engine_in.d[2];
+            m_input_w = engine_in.d[3];
+        }
+    }
+    // 动态引擎才需要 setInputShape；静态引擎(无优化 profile)返回 false 则沿用固定形状
+    nvinfer1::Dims input_dims{ 4, {YoloConfig::BATCH_SIZE, YoloConfig::CHANNELS, m_input_h, m_input_w} };
     if (!m_context->setInputShape(YoloConfig::INPUT_NAME_T, input_dims)) {
-        AppLogger::get().error("Failed to set input shape!");
-        return false;
+        AppLogger::get().warn("setInputShape 失败（静态引擎无优化 profile），沿用引擎固定输入形状 [{},{},{},{}]",
+                              YoloConfig::BATCH_SIZE, YoloConfig::CHANNELS, m_input_h, m_input_w);
     }
 
     // 获取输出大小
@@ -136,7 +172,7 @@ bool YoloV8TensorRT::loadEngine(const std::string& file_path, const std::string&
 
     m_host_output.resize(m_output_bytes / sizeof(float));  // 预分配，避免每帧 alloc
 
-    m_input_bytes = YoloConfig::BATCH_SIZE * YoloConfig::CHANNELS * YoloConfig::INPUT_H * YoloConfig::INPUT_W * sizeof(float);// 输入字节数
+    m_input_bytes = static_cast<size_t>(YoloConfig::BATCH_SIZE) * YoloConfig::CHANNELS * m_input_h * m_input_w * sizeof(float);// 输入字节数
 
     // 分配 GPU 内存
     if (cudaMalloc(&m_device_input, m_input_bytes) != cudaSuccess ||
@@ -185,22 +221,22 @@ std::vector<Detection> YoloV8TensorRT::infer(const cv::Mat& frame, int orig_img_
 
     //2. GPU预处理（使用预分配 GpuMat，避免每帧 GPU alloc）
     float orig_ratio = static_cast<float>(orig_img_w) / orig_img_h;
-    float model_ratio = static_cast<float>(YoloConfig::INPUT_W) / YoloConfig::INPUT_H;
+    float model_ratio = static_cast<float>(m_input_w) / m_input_h;
 
     cv::Size new_size;
     int top_pad = 0, bottom_pad = 0, left_pad = 0, right_pad = 0;
 
     if (orig_ratio > model_ratio) {
-        new_size.width = YoloConfig::INPUT_W;
-        new_size.height = static_cast<int>(YoloConfig::INPUT_W / orig_ratio);
-        top_pad = (YoloConfig::INPUT_H - new_size.height) / 2;
-        bottom_pad = YoloConfig::INPUT_H - new_size.height - top_pad;
+        new_size.width = m_input_w;
+        new_size.height = static_cast<int>(m_input_w / orig_ratio);
+        top_pad = (m_input_h - new_size.height) / 2;
+        bottom_pad = m_input_h - new_size.height - top_pad;
     }
     else {
-        new_size.height = YoloConfig::INPUT_H;
-        new_size.width = static_cast<int>(YoloConfig::INPUT_H * orig_ratio);
-        left_pad = (YoloConfig::INPUT_W - new_size.width) / 2;
-        right_pad = YoloConfig::INPUT_W - new_size.width - left_pad;
+        new_size.height = m_input_h;
+        new_size.width = static_cast<int>(m_input_h * orig_ratio);
+        left_pad = (m_input_w - new_size.width) / 2;
+        right_pad = m_input_w - new_size.width - left_pad;
     }
 
     // resize + copyMakeBorder (letterbox in 1 step: 替代 setTo+copyTo)
@@ -214,14 +250,22 @@ std::vector<Detection> YoloV8TensorRT::infer(const cv::Mat& frame, int orig_img_
     cv::cvtColor(m_float, m_rgb, cv::COLOR_BGR2RGB);
 
     // HWC -> CHW: split（预分配 channel Mat，无 per-frame alloc）+ H2D memcpy
+    // 修复：split() 只写入数组元素（Mat 头拷贝），成员 m_channel_* 之前从未分配，
+    //      原先从空 Mat 取 ptr<float>()（空指针）导致 GPU 输入一直是垃圾数据 → 零检出。
+    //      这里显式预分配成员（数组拷贝与成员共享缓冲），并直接从数组元素取数据。
+    if (m_channel_r.empty()) {
+        m_channel_r.create(m_input_h, m_input_w, CV_32FC1);
+        m_channel_g.create(m_input_h, m_input_w, CV_32FC1);
+        m_channel_b.create(m_input_h, m_input_w, CV_32FC1);
+    }
     cv::Mat channels[] = { m_channel_r, m_channel_g, m_channel_b };
     cv::split(m_rgb, channels);
-    size_t channel_size = YoloConfig::INPUT_W * YoloConfig::INPUT_H * sizeof(float);
-    cudaMemcpyAsync(static_cast<char*>(m_device_input), m_channel_r.ptr<float>(),
+    size_t channel_size = m_input_w * m_input_h * sizeof(float);
+    cudaMemcpyAsync(static_cast<char*>(m_device_input), channels[0].ptr<float>(),
         channel_size, cudaMemcpyHostToDevice, m_stream);
-    cudaMemcpyAsync(static_cast<char*>(m_device_input) + channel_size, m_channel_g.ptr<float>(),
+    cudaMemcpyAsync(static_cast<char*>(m_device_input) + channel_size, channels[1].ptr<float>(),
         channel_size, cudaMemcpyHostToDevice, m_stream);
-    cudaMemcpyAsync(static_cast<char*>(m_device_input) + 2 * channel_size, m_channel_b.ptr<float>(),
+    cudaMemcpyAsync(static_cast<char*>(m_device_input) + 2 * channel_size, channels[2].ptr<float>(),
         channel_size, cudaMemcpyHostToDevice, m_stream);
 
     auto preprocess_end = std::chrono::high_resolution_clock::now();
@@ -267,10 +311,10 @@ std::vector<Detection> YoloV8TensorRT::infer(const cv::Mat& frame, int orig_img_
     // 计算 Letterbox 的缩放和填充（padding 复用预处理阶段的值）
     float scale;
     if (orig_ratio > model_ratio) {
-        scale = static_cast<float>(YoloConfig::INPUT_W) / orig_img_w;
+        scale = static_cast<float>(m_input_w) / orig_img_w;
     }
     else {
-        scale = static_cast<float>(YoloConfig::INPUT_H) / orig_img_h;
+        scale = static_cast<float>(m_input_h) / orig_img_h;
     }
 
     std::vector<int> class_ids;

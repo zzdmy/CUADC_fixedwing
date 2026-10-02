@@ -54,7 +54,7 @@ public:
         double drone_yaw_rad   // FC yaw (rad)
     ) const;
 
-    // 像素→机体FRD坐标（不转GPS，用于Precision Loiter）
+    // 像素→机体FRD坐标（不转GPS，用于手动观察/调试输出）
     bool pixelToBodyFrame(float pixel_x, float pixel_y,
                           float drone_alt_m,
                           double drone_roll_rad, double drone_pitch_rad, double drone_yaw_rad,

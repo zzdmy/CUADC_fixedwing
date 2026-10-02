@@ -160,7 +160,6 @@
     <ClInclude Include="TargetSelection.h" />
     <ClInclude Include="tracking\TrackedObject.h" />
     <ClInclude Include="tracking\NextNumberGenerator.h" />
-    <ClInclude Include="tracking\StableDetectionTracker.h" />
     <ClInclude Include="tracking\GPSTargetClusterer.h" />
     <ClInclude Include="MotionController.h" />
     <ClInclude Include="OpenCVDNNDetector.h" />
@@ -176,6 +175,10 @@
     <ClInclude Include="ocr\OcrCharset.h" />
     <ClInclude Include="ocr\PaddleOCRRec.h" />
     <ClInclude Include="ocr\OcrDigitReader.h" />
+    <ClInclude Include="ocr\TrtEngine.h" />
+    <ClInclude Include="ocr\PaddleDet.h" />
+    <ClInclude Include="ocr\TextLineOri.h" />
+    <ClInclude Include="ocr\OcrPipeline.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AppLogger.cpp" />
@@ -186,7 +189,6 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="MavlinkProtocolHandler.cpp" />
     <ClCompile Include="MissionScheduler.cpp" />
-    <ClCompile Include="tracking\StableDetectionTracker.cpp" />
     <ClCompile Include="tracking\GPSTargetClusterer.cpp" />
     <ClCompile Include="MotionController.cpp" />
     <ClCompile Include="OpenCVDNNDetector.cpp" />
@@ -205,6 +207,10 @@
     <ClCompile Include="ocr\OcrCharset.cpp" />
     <ClCompile Include="ocr\PaddleOCRRec.cpp" />
     <ClCompile Include="ocr\OcrDigitReader.cpp" />
+    <ClCompile Include="ocr\TrtEngine.cpp" />
+    <ClCompile Include="ocr\PaddleDet.cpp" />
+    <ClCompile Include="ocr\TextLineOri.cpp" />
+    <ClCompile Include="ocr\OcrPipeline.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Library Include="opencv_world4130.lib" />
